@@ -1,0 +1,73 @@
+<html>
+	<head>
+		<title>HTMAPL</title>
+		<script type="text/javascript" src="lib/jquery-1.5.min.js"></script>
+		<script type="text/javascript" src="lib/polymaps.js"></script>
+		<script type="text/javascript" src="src/htmapl.js"></script>
+		<style type="text/css">
+
+			body {
+				padding: 1em;
+				margin: 0;
+			}
+
+			div.map {
+				background: #eee;
+				float: left;
+				width: 700px;
+				height: 370px;
+				margin: 0 1em 1em 0;
+			}
+
+			div.narrow {
+				width: 370px;
+			}
+
+		</style>
+	</head>
+	<body>
+
+		<div class="map narrow interact wheel" data-center="37.7639,-122.4130" data-zoom="12">
+			<div class="layer" data-type="image"
+				data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"></div>
+		</div>
+
+		<div class="map wide" data-center="38,-96" data-zoom="4">
+			<div class="layer" data-type="geoJson"
+				data-url="http://polymaps.appspot.com/state/{Z}/{X}/{Y}.json"
+				data-title="{name}"
+				data-href="http://google.com/search?q={name}"
+				data-style="stroke: #000; stroke-width: 1; fill: #f00; fill-opacity: .1"></div>
+		</div>
+
+		<!--
+		<div class="map wide" data-center="38,-96" data-zoom="4">
+			<div class="layer" data-type="geoJson"
+				data-url="http://polymaps.appspot.com/state/{Z}/{X}/{Y}.json"
+				data-title="{name}"
+				data-href="http://google.com/search?q={name}"
+				data-style="fill: javascript:random; fill-opacity: .5"></div>
+			<script type="text/javascript">
+				var colors = ["red", "white", "blue"],
+						seen = {};
+				function random(f) {
+					var k = f.properties.name;
+					if (!seen[k]) {
+						seen[k] = colors[Math.round(Math.random() * (colors.length - 1))];
+					}
+					return seen[k];
+				}
+			</script>
+		</div>
+		-->
+
+		<script type="text/javascript" defer="defer">
+			// do it.
+			$(function() {
+				$("div.map").htmapl({
+				});
+			});
+		</script>
+
+	</body>
+</html>
