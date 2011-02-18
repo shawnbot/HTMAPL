@@ -64,7 +64,9 @@
 		<script type="text/javascript" defer="defer">
 			// do it.
 			$(function() {
-				$("div.map").htmapl({
+				$("div.map").htmapl().each(function() {
+					var map = $(this).data("map");
+					// console.log(map.center());
 				});
 			});
 		</script>

@@ -89,7 +89,7 @@
 			}
 			// apply as function if it is one
 			if (typeof map[key] == "function") {
-				console.log("map." + key + "(" + JSON.stringify(value) + ")");
+				// console.log("map." + key + "(" + JSON.stringify(value) + ")");
 				map[key](value);
 			// or just set the key on the map object
 			} else {
@@ -193,7 +193,7 @@
 								try {
 									value = eval(js[1]);
 								} catch (e) {
-									console.log("unable to eval('" + js[1] + "'): " + e);
+									// console.log("unable to eval('" + js[1] + "'): " + e);
 								}
 							}
 							stylist.attr(name, value);
