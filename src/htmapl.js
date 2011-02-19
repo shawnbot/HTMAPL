@@ -98,6 +98,10 @@
 		}
 	}
 
+	function px(n) {
+		return Math.round(n) + "px";
+	}
+
 	function htmapl(el, defaults) {
 		var po = org.polymaps;
 		// the root element
@@ -248,6 +252,48 @@
 				map.add(layer);
 			}
 		}).remove();
+
+		var markers = root.find(".marker").filter(function(i, m) {
+			var marker = $(this),
+					loc = getLatLon(marker.data("location"));
+			if (loc) {
+				marker.data("location", loc);
+				marker.css("position", "absolute");
+				return true;
+			}
+			return false;
+		});
+
+		if (markers.length) {
+			root.css("position", "relative");
+
+			var markerLayer = $("<div/>")
+				.attr("class", "markers")
+				.css({
+					position: "absolute",
+					left: 0, top: 0
+				})
+				.appendTo(root);
+
+			markers.appendTo(markerLayer);
+
+			map.on("move", function() {
+				var size = map.size();
+				markers.each(function() {
+					var marker = $(this),
+							loc = marker.data("location"),
+							pos = map.locationPoint(loc);
+					if (pos.x >= 0 && pos.x <= size.x && pos.y >= 0 && pos.y <= size.y) {
+						marker.css("left", px(pos.x)).css("top", px(pos.y));
+						marker.css("display", "");
+					} else {
+						marker.css("display", "none");
+					}
+				});
+			});
+		}
+
+		map.center(map.center());
 
 		return root.data("map", map);
 	}
