@@ -6,10 +6,12 @@
 
 	var id = 0;
  	engine.container = function() {
-		// FIXME: this is kind of hacky.
+		// FIXME: this is kind of hacky
 		var container = document.createElement("div");
 		container.setAttribute("class", "modestmap");
-		container.style.width = container.style.height = "100%";
+		// XXX: the !important here forces the container to go full-size,
+		// which is, well, important during resize operations.
+		container.style.width = container.style.height = "100% !important";
 		container.setAttribute("id", "mmap" + (++id));
 		return container;
 	};
@@ -137,6 +139,9 @@
 	 *
 	 * FIXME: This should actually create slaved Map instances, to deal with
 	 * ModestMaps' inability to manage multi-layer image providers.
+	 *
+	 * TODO: This also needs a po.dispatch()-like interface with "load" and
+	 * "unload" event handlers.
 	 */
 	engine.image = function() {
 		var template = "",
@@ -200,6 +205,8 @@
 	}
 
 	engine.drag = handler(mm.MouseHandler);
+	// TODO: integrate some of Tom's other handlers, or write them here?
 	// engine.arrow = handler(mm.KeyboardHandler);
+	// engine.gesture = handler(mm.GestureHandler);
 
 })(com.modestmaps);

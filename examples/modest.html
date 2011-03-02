@@ -1,0 +1,50 @@
+<html>
+	<head>
+		<title>HTMAPL: ModestMaps</title>
+		<script type="text/javascript" src="../lib/jquery-1.5.min.js"></script>
+		<script type="text/javascript" src="../lib/modestmaps.js"></script>
+		<script type="text/javascript" src="../src/modestmaps-htmapl.js"></script>
+		<script type="text/javascript" src="../src/htmapl.js"></script>
+		<script type="text/javascript">
+			function toggleTiles() {
+				$(".map.static img").toggleClass("show");
+			}
+		</script>
+		<style type="text/css">
+			@import url(style/examples.css);
+			img.show {
+				border: 1px dotted #f0f;
+				margin: -1px 0 0 -1px;
+			}
+		</style>
+	</head>
+	<body>
+
+		<h1>HTMAPL: ModestMaps</h1>
+
+		<p>This map is interactive, and overlays a pure HTML &lt;div&gt; with absolutely
+		positioned markers styled with CSS.</p>
+		<div class="map narrow interact" data-center="37.7639,-122.4130" data-zoom="12">
+			<div class="layer" data-type="image"
+				data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"></div>
+			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
+		</div>
+
+		<p>This map is static. ModestMaps positions the <a href="javascript:toggleTiles()">tiles</a>, and that's it.</p>
+		<div class="map narrow static" data-center="37.7639,-122.4130" data-zoom="10">
+			<div class="layer" data-type="image"
+				data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"></div>
+			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
+		</div>
+
+		<script type="text/javascript" defer="defer">
+			// do it.
+			$(function() {
+				$("div.map").htmapl().each(function() {
+					// var map = $(this).data("map");
+				});
+			});
+		</script>
+
+	</body>
+</html>
