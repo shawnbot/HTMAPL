@@ -130,6 +130,53 @@
 		return count > 0 ? style : null;
 	}
 
+	function applyStyle(layer, source, style, engine) {
+		var stylist = engine.stylist();
+		for (var name in style) {
+			var value = style[name], js;
+			if (js = value.match(/^javascript:(.*)$/)) {
+				try {
+					value = eval(js[1]);
+				} catch (e) {
+					// console.log("unable to eval('" + js[1] + "'): " + e);
+				}
+			}
+			stylist.attr(name, value);
+		}
+
+		var titleTemplate = source.data("title");
+		if (titleTemplate) {
+			stylist.title(function(feature) {
+				return templatize(titleTemplate, feature.properties);
+			});
+		}
+
+		layer.on("load", stylist);
+	}
+
+	function applyLinkTemplate(layer, template, engine) {
+		var wrap = function(e) {
+			var len = e.features.length;
+			for (var i = 0; i < len; i++) {
+				var feat = e.features[i],
+						href = templatize(template, feat.data.properties);
+				if (href) {
+					var o = feat.element,
+							p = o.parentNode,
+							a = engine.anchor();
+					p.appendChild(a).appendChild(o);
+					// FIXME: do this better
+					if (typeof engine.ns != "undefined") {
+						a.setAttributeNS(engine.ns.xlink, "href", href);
+					} else {
+						a.setAttribute("href", href);
+					}
+				}
+			}
+		}
+		layer.on("load", wrap);
+	}
+
 	/**
 	 * This function "applies" data from a jQuery object (obj) to a "map-like"
 	 * object (map), using key/value data attributes (attr). The basic process is:
@@ -225,19 +272,25 @@
 	 * Initially we're assuming a Polymaps-like interface with the following
 	 * generators:
 	 *
-	 * map() for the main map object, with the following methods:
-	 * 	center({lat, lon})
-	 * 	zoom(z)
-	 * 	zoomRange([min, max])
-	 * 	extent([{lat, lon}, {lat, lon}])
-	 * 	size({x, y})
-	 * 	tileSize({x, y})
-	 * 	add(layer)
+	 * - map() for the main map object, with the following getter/setters:
+	 * 	 center({lat, lon})
+	 * 	 zoom(z)
+	 * 	 zoomRange([min, max])
+	 * 	 extent([{lat, lon}, {lat, lon}])
+	 * 	 size({x, y})
+	 * 	 tileSize({x, y})
+	 * 	 add(layer)
 	 *
-	 * image() for image layers with a templated URL
-	 * geoJson() for GeoJSON vector layers with a templated URL
-	 * interact() handlers for panning and zooming directly
-	 * compass() for attaching explict panning and zooming UI
+	 * - image() for image layers, with methods:
+	 *   url("template")
+	 * - geoJson() for GeoJSON vector layers, with methods:
+	 *   url("template")
+	 *   scale("scale")
+	 *   tile(bool)
+	 *   clip(bool)
+	 *   zoom(int)
+	 * - interact() handlers for panning and zooming directly
+	 * - compass() for attaching explict panning and zooming UI
 	 *
 	 * Note: For parity between HTML (ModestMaps) and non-HTML (Polymaps) renderers,
 	 * engines should also implement the following methods to create DOM
@@ -297,11 +350,17 @@
 	function htmapl(el, defaults, overrides) {
 
 		var engine = $.fn.htmapl.engine;
+		if (!engine.map) throw new Error("No map() generator in engine");
 
 		// the root element
 		var root = $(el),
-				container = el.insertBefore(engine.container(), null),
-				map = engine.map().container(container);
+				container = engine.container();
+
+		if (container) el.insertBefore(container, null);
+		else container = el;
+
+		var map = engine.map();
+		map.container(container);
 
 		// always do relative positioning in the container
 		root.css("position", "relative");
@@ -340,8 +399,8 @@
 			} else {
 				if (engine.dblclick) map.add(engine.dblclick());
 				if (engine.drag) map.add(engine.drag());
-				if (engine.arrow) map.add(engine.arrow());
-				if (root.hasClass("wheel") && engine.wheel) {
+				if (engine.arrow && !root.hasClass("no-kybd")) map.add(engine.arrow());
+				if (engine.wheel && root.hasClass("wheel")) {
 					map.add(engine.wheel().smooth(root.hasClass("smooth")));
 				}
 			}
@@ -349,15 +408,13 @@
 			if (root.hasClass("drag") && engine.drag) {
 				map.add(engine.drag());
 			}
-			if (root.hasClass("arrow") && engine.arrow) {
-				map.add(engine.arrow());
-			}
-			if (root.hasClass("wheel")) {
+			if (engine.wheel && root.hasClass("wheel")) {
 				map.add(engine.wheel().smooth(root.hasClass("smooth")));
 			}
 		}
+
 		// hash stashing
-		if (root.hasClass("hash") && engine.hash) {
+		if (engine.hash && root.hasClass("hash")) {
 			map.add(engine.hash());
 		}
 
@@ -372,9 +429,11 @@
 
 					layer = engine.image();
 					attrs.url = String;
+					/*
 					attrs.visible = getBoolean;
 					attrs.tile = getBoolean;
 					attrs.zoom = getFloat;
+					*/
 					break;
 
 				case "geoJson":
@@ -385,9 +444,10 @@
 						? engine.geoJson(engine.queue.jsonp)
 						: engine.geoJson();
 					attrs.url = String;
-					attrs.visible = getBoolean;
+					// attrs.visible = getBoolean;
 					attrs.scale = String;
 					attrs.tile = getBoolean;
+					attrs.clip = getBoolean;
 					attrs.zoom = getFloat;
 					// allow string parsing of JSON features?
 					/*
@@ -395,54 +455,16 @@
 						attrs.features = JSON.parse;
 					}
 					*/
-					attrs.clip = getBoolean;
 
 					var str = source.data("style"),
 							style = parseCSS(str);
 					if (style && engine.stylist) {
-						var stylist = engine.stylist();
-						for (var name in style) {
-							var value = style[name], js;
-							if (js = value.match(/^javascript:(.*)$/)) {
-								try {
-									value = eval(js[1]);
-								} catch (e) {
-									// console.log("unable to eval('" + js[1] + "'): " + e);
-								}
-							}
-							stylist.attr(name, value);
-						}
+						applyStyle(layer, source, style, engine);
+					}
 
-						var titleTemplate = source.data("title");
-						if (titleTemplate) {
-							stylist.title(function(feature) {
-								return templatize(titleTemplate, feature.properties);
-							});
-						}
-
-						layer.on("load", stylist);
-
-						var linkTemplate = source.data("href");
-						if (linkTemplate && engine.anchor) {
-							layer.on("load", function(e) {
-								var len = e.features.length;
-								for (var i = 0; i < len; i++) {
-									var href = templatize(linkTemplate, e.features[i].data.properties);
-									if (href) {
-										var o = e.features[i].element,
-												p = o.parentNode,
-												a = engine.anchor();
-										p.appendChild(a).appendChild(o);
-										// FIXME: do this better
-										if (typeof engine.ns != "undefined") {
-											a.setAttributeNS(engine.ns.xlink, "href", href);
-										} else {
-											a.setAttribute("href", href);
-										}
-									}
-								}
-							});
-						}
+					var linkTemplate = source.data("href");
+					if (linkTemplate && engine.anchor) {
+						applyLinkTemplate(layer, linkTemplate, engine);
 					}
 
 					break;
