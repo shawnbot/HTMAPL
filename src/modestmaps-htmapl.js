@@ -1,7 +1,6 @@
 (function(mm) {
 
- 	var mm = com.modestmaps,
-			engine = mm.htmapl = {};
+ 	var engine = mm.htmapl = {};
 
 	var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
 
@@ -95,6 +94,15 @@
 			}
 		};
 
+		map.extent = function(e) {
+			if (arguments.length) {
+				_map.setExtent(e);
+				return map;
+			} else {
+				return _map.getExtent();
+			}
+		};
+
 		// add a layer
 		map.add = function(layer) {
 			layer.map(_map);
@@ -124,8 +132,11 @@
 	};
 
 	/**
-	 * The image() generator wraps com.modestmaps.TemplatedMapProvider with
-	 * Polymaps-like functionality.
+	 * The image() generator wraps com.modestmaps.MapProvider with Polymaps-like
+	 * functionality.
+	 *
+	 * FIXME: This should actually create slaved Map instances, to deal with
+	 * ModestMaps' inability to manage multi-layer image providers.
 	 */
 	engine.image = function() {
 		var template = "",

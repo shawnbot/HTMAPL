@@ -222,28 +222,44 @@
 
 	/**
 	 * The engine is an interface which creates all of the necessary objects.
-	 * Initially we're assuming a Polymaps interface with the following
+	 * Initially we're assuming a Polymaps-like interface with the following
 	 * generators:
 	 *
-	 * map() for the main map object
+	 * map() for the main map object, with the following methods:
+	 * 	center({lat, lon})
+	 * 	zoom(z)
+	 * 	zoomRange([min, max])
+	 * 	extent([{lat, lon}, {lat, lon}])
+	 * 	size({x, y})
+	 * 	tileSize({x, y})
+	 * 	add(layer)
+	 *
 	 * image() for image layers with a templated URL
 	 * geoJson() for GeoJSON vector layers with a templated URL
 	 * interact() handlers for panning and zooming directly
 	 * compass() for attaching explict panning and zooming UI
+	 *
+	 * Note: For parity between HTML (ModestMaps) and non-HTML (Polymaps) renderers,
+	 * engines should also implement the following methods to create DOM
+	 * elements:
+	 *
+	 * container() for map element containers (<svg:svg/>, <div/>, etc.)
+	 * anchor() for hypertext links (<svg:a/>, <a href=""/>, etc.)
+	 *
+	 * NB: The Polymaps "engine" also provides the XLink namespace in
+	 * engine.ns.xlink, which htmapl uses in the namespace argument to
+	 * DOM::setAttributeNS(). If there is no "ns" in the engine object it
+	 * defaults to DOM::setAttribute().
 	 */
 	exports.engine = (function() {
 		var engine = {};
 
 		// Polymaps takes priority
 		if (typeof org != "undefined" && org.polymaps) {
-			var po = org.polymaps;
-			po.container = function() {
-				return po.svg("svg");
-			};
-
-			return po;
+			return org.polymaps;
 		}
 
+		// Then comes the ModestMaps compatibility layer
 		else if (typeof com != "undefined" && com.modestmaps) {
 			return com.modestmaps.htmapl;
 		}
@@ -418,7 +434,7 @@
 												a = engine.anchor();
 										p.appendChild(a).appendChild(o);
 										// FIXME: do this better
-										if (typeof engine.ns == "object") {
+										if (typeof engine.ns != "undefined") {
 											a.setAttributeNS(engine.ns.xlink, "href", href);
 										} else {
 											a.setAttribute("href", href);
@@ -466,7 +482,6 @@
 		});
 
 		if (markers.length) {
-			console.log(["markers:", markers]);
 			var markerLayer = $("<div/>")
 				.attr("class", "markers")
 				.css({
