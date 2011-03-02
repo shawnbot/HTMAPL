@@ -531,7 +531,21 @@
 		}
 
 		// force a move
-		map.center(map.center());
+		// map.center(map.center());
+
+		/**
+		 * XXX: The deferred initialization does a resize based on the element's
+		 * innerWidth and innerHeight. This is a workaround for a Chrome bug (I
+		 * think) that prevents us from knowing what the dimensions of the
+		 * container are at this stage.
+		 */
+		function deferredInit() {
+			clearTimeout(deferredInit.timeout);
+			var size = {x: root.innerWidth(), y: root.innerHeight()};
+			// console.log(["init:", size.x, size.y]);
+			map.size(size);
+		}
+		deferredInit.timeout = setTimeout(deferredInit, 10);
 
 		// stash the map in the jQuery element data for future reference
 		return root.data("map", map);

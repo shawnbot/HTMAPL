@@ -9,9 +9,6 @@
 		// FIXME: this is kind of hacky
 		var container = document.createElement("div");
 		container.setAttribute("class", "modestmap");
-		// XXX: the !important here forces the container to go full-size,
-		// which is, well, important during resize operations.
-		container.style.width = container.style.height = "100% !important";
 		container.setAttribute("id", "mmap" + (++id));
 		return container;
 	};
@@ -22,11 +19,15 @@
 		 * non-trivial to add/remove event handlers after the Map instance has been
 		 * created.
 		 */
-		var container = engine.container(),
+		// Our initial contianer is a detached <div>
+		var container = document.createElement("div"),
 				_map = new mm.Map(container, NULL_PROVIDER, null, []),
 				map = {},
 				// style attributes to pass along to new containers
 				restyle = ["position", "padding", "overflow"];
+
+		// just so we can make sure this doesn't stick around
+		container.setAttribute("class", "dummy");
 
 		// expose all of the normal stuff
 		map.locationPoint = function(loc) { return _map.locationPoint(loc); };
@@ -49,8 +50,13 @@
 
 				// then just hack the parent
 				_map.parent = container = c;
-				// redraw (fingers crossed!)
-				map.size({x: container.offsetWidth, y: container.offsetHeight});
+				// XXX: this is a bit hacky, because we're using a nested container of
+				// a relatively positioned parent. So we set its CSS width and height
+				// to 100%, then set the map's size to its calculated dimensions.
+				container.style.width = container.style.height = "100%";
+				var $con = $(container),
+						size = {x: $con.innerWidth(), y: $con.innerHeight()};
+				map.size(size);
 
 				return map;
 			}
@@ -60,7 +66,8 @@
 		// size getter/setter
 		map.size = function(dims) {
 			if (arguments.length) {
-				_map.setSize(dims);
+				_map.dimensions = dims;
+				_map.draw();
 				return map;
 			} else {
 				return _map.dimensions;
