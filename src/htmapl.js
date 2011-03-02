@@ -1,11 +1,29 @@
 (function($) {
 
+ 	/**
+	 * Parses mustached "variables" in a string and replaces them with property
+	 * values from another object. E.g.:
+	 *
+	 * templatize("Type: {type}", {type: "fish"}) -> "Type: fish"
+	 */
  	function templatize(template, obj) {
-		return template.replace(/{(.+)}/g, function(s, prop) {
+		return template.replace(/{([^}]+)}/g, function(s, prop) {
 			return obj[prop];
 		});
 	}
 
+	/**
+	 * Parsing Functions
+	 *
+	 * The following functions are used to parse meaningful values from strings,
+	 * and should return null if the provided strings don't match a predefined
+	 * format.
+	 */
+
+	/**
+	 * Parse a {lat,lon} object from a string: "lat,lon", or return null if the
+	 * string does not contain a single comma.
+	 */
  	function getLatLon(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/),
@@ -16,6 +34,10 @@
 		return null;
 	}
 
+	/**
+	 * Parse an {x,y} object from a string: "x,x", or return null if the string
+	 * does not contain a single comma.
+	 */
  	function getXY(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/),
@@ -26,6 +48,11 @@
 		return null;
 	}
 
+	/**
+	 * Parse an extent array [{lat,lon},{lat,lon}] from a string:
+	 * "lat1,lon1,lat2,lon2", or return null if the string does not contain a
+	 * 4 comma-separated numbers.
+	 */
  	function getExtent(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/);
@@ -43,21 +70,49 @@
 		return null;
 	}
 
+	/**
+	 * Parse an integer from a string using parseInt(), or return null if the
+	 * resulting value is NaN.
+	 */
 	function getInt(str) {
 		var i = parseInt(str);
 		return isNaN(i) ? null : i;
 	}
 
+	/**
+	 * Parse a float from a string using parseFloat(), or return null if the
+	 * resulting value is NaN.
+	 */
 	function getFloat(str) {
 		var i = parseFloat(str);
 		return isNaN(i) ? null : i;
 	}
 
+	/**
+	 * Parse a string as a boolean "true" or "false", otherwise null.
+	 */
 	function getBoolean(str) {
 		return (str === "true") ? true : (str === "false") ? false : null;
 	}
 
-	// This is kind of stupid.
+	/**
+	 * Parse a string as an array of at least two comma-separated strings, or
+	 * null if it does not contain at least one comma.
+	 */
+	function getArray(str) {
+		return (typeof str === "string" && str.indexOf(",") > -1) ? str.split(",") : null;
+	}
+
+	/**
+	 * This is kind of stupid.
+	 *
+	 * Anyway, parse a string as CSS attributes (like what you'd expect to see
+	 * inside the curly braces of a selector or an inline HTML "style"
+	 * attribute), liberally allowing for anything that looks like "key: value"
+	 * pairs separated by semicolons. The return value is an object map:
+	 *
+	 * "a: foo; b: bar" -> {a: "foo", b: "bar"}
+	 */
  	function parseCSS(str) {
 		if (!str) return null;
 		var style = {},
@@ -75,13 +130,59 @@
 		return count > 0 ? style : null;
 	}
 
-	// apply
+	/**
+	 * This function "applies" data from a jQuery object (obj) to a "map-like"
+	 * object (map), using key/value data attributes (attr). The basic process is:
+	 *
+	 * for each (key in attrs):
+	 *   transform = attrs[key]
+	 *   data = obj.data(key)
+	 *   if transform is a function:
+	 *     value = transform(data)
+	 *     map[key](value)
+	 *   else:
+	 *     map[key](data)
+	 *
+	 * In other words, for each key in the attrs object, we get the jQuery
+	 * object's corresponding HTML data attribute value and "apply" it to the map
+	 * by its correspondingly named function. The data passed to map differs
+	 * based on whether or not the value of the named key in the attrs object
+	 * (that is, `attrs[key]`) is a function. If it is, the HTML data attribute
+	 * value is transformed via that function then, if not null, passed to the
+	 * map. Otherwise, it's passed along as a string.
+	 *
+	 * This is the primary mechanism by which HTML data attributes are
+	 * transformed into values appropriate for the corresponding method of the
+	 * "map-like" object, which is expected to expose a getter-setter interface
+	 * like Polymaps'. So, given this state:
+	 *
+	 * 	var obj = $('<div class="map" data-center="37.7639,-122.4130"/>');
+	 * 	var attrs = {
+	 * 	  center: $.htmapl.getLatLon
+	 * 	};
+	 * 	var map = org.polymaps.map();
+	 *
+	 * Calling:
+	 *
+	 * 	applyData(obj, map, attrs);
+	 *
+	 * would essentially boil down to:
+	 *
+	 * 	map.center($.htmapl.getLatLon(obj.data("center"));
+	 */
 	function applyData(obj, map, attrs) {
 		for (var key in attrs) {
-			var value = attrs[key];
-			// call it as function(data) with the element as its context
-			if (typeof value == "function") {
-				value = value(obj.data(key));
+			var transform = attrs[key],
+					data = obj.data(key),
+					value = null;
+			// call it as transform(data) with the jQuery object as its context
+			if (typeof transform == "function") {
+				value = transform.call(obj, data);
+			// otherwise, just use the string value
+			// XXX: could we do something with attrs[key] here?
+			} else {
+				// console.log(["got value for", key, data]);
+				value = data;
 			}
 			// don't apply null values
 			if (value == null) {
@@ -102,12 +203,92 @@
 		return Math.round(n) + "px";
 	}
 
-	function htmapl(el, defaults) {
-		var po = org.polymaps;
+	// keep a reference around to the plugin object for exporting useful functions
+	var exports = $.fn.htmapl = function(defaults, overrides) {
+		return this.each(function(i, el) {
+			htmapl(el, defaults, overrides);
+		});
+	};
+
+	// exports
+	exports.getArray = getArray;
+	exports.getBoolean = getBoolean;
+	exports.getExtent = getExtent;
+	exports.getFloat = getFloat;
+	exports.getInt = getInt;
+	exports.getLatLon = getLatLon;
+	exports.getXY = getXY;
+	exports.templatize = templatize;
+
+	/**
+	 * The engine is an interface which creates all of the necessary objects.
+	 * Initially we're assuming a Polymaps interface with the following
+	 * generators:
+	 *
+	 * map() for the main map object
+	 * image() for image layers with a templated URL
+	 * geoJson() for GeoJSON vector layers with a templated URL
+	 * interact() handlers for panning and zooming directly
+	 * compass() for attaching explict panning and zooming UI
+	 */
+	exports.engine = (function() {
+		var engine = {};
+
+		// Polymaps takes priority
+		if (typeof org != "undefined" && org.polymaps) {
+			var po = org.polymaps;
+			po.container = function() {
+				return po.svg("svg");
+			};
+
+			return po;
+		}
+
+		else if (typeof com != "undefined" && com.modestmaps) {
+			return com.modestmaps.htmapl;
+		}
+
+		// If Polymaps is missing we can still provide an abstract interface to be
+		// filled in at runtime. TODO: provide an example!
+		return {
+			map: function() {
+				var map = {};
+				map.add = function(layer) {
+					layer.map(map);
+					return map;
+				};
+				map.remove = function(layer) {
+					layer.map(null);
+					return map;
+				};
+				return map;
+			},
+			image: function() {
+				return {};
+			},
+			geoJson: function() {
+				return {};
+			},
+			compass: function() {
+				return {};
+			},
+			interact: function() {
+				return {};
+			},
+		};
+	})();
+
+	function htmapl(el, defaults, overrides) {
+
+		var engine = $.fn.htmapl.engine;
+
 		// the root element
 		var root = $(el),
-				container = el.appendChild(po.svg("svg")),
-				map = po.map().container(container);
+				container = el.insertBefore(engine.container(), null),
+				map = engine.map().container(container);
+
+		// always do relative positioning in the container
+		root.css("position", "relative");
 
 		if (defaults) {
 			applyData(root, map, defaults);
@@ -120,6 +301,8 @@
 			center: 	getLatLon,
 			// zoom is a float
 			zoom: 		getFloat,
+			// zoom is a float
+			zoomRange: getArray,
 			// size comes in "x,y"
 			size: 		getXY,
 			// tileSize comes in "x,y"
@@ -128,31 +311,38 @@
 			angle:		getFloat
 		});
 
+		if (overrides) {
+			applyData(root, map, overrides);
+		}
+
 		// Interaction! We don't do the wheel by default here;
 		// in order to enable it, you need to explicitly set the
 		// "wheel" class on the containing element.
 		if (root.hasClass("interact")) {
-			map.add(po.dblclick());
-			map.add(po.drag());
-			map.add(po.arrow());
-			if (root.hasClass("wheel")) {
-				map.add(po.wheel().smooth(root.hasClass("smooth")));
+			if (engine.interact) {
+				map.add(engine.interact());
+			} else {
+				if (engine.dblclick) map.add(engine.dblclick());
+				if (engine.drag) map.add(engine.drag());
+				if (engine.arrow) map.add(engine.arrow());
+				if (root.hasClass("wheel") && engine.wheel) {
+					map.add(engine.wheel().smooth(root.hasClass("smooth")));
+				}
 			}
 		} else {
-			if (root.hasClass("drag")) {
-				map.add(po.drag());
+			if (root.hasClass("drag") && engine.drag) {
+				map.add(engine.drag());
 			}
-			if (root.hasClass("arrow")) {
-				var arrow = po.arrow();
-				map.add(arrow);
+			if (root.hasClass("arrow") && engine.arrow) {
+				map.add(engine.arrow());
 			}
 			if (root.hasClass("wheel")) {
-				map.add(po.wheel().smooth(root.hasClass("smooth")));
+				map.add(engine.wheel().smooth(root.hasClass("smooth")));
 			}
 		}
 		// hash stashing
-		if (root.hasClass("hash")) {
-			map.add(po.hash());
+		if (root.hasClass("hash") && engine.hash) {
+			map.add(engine.hash());
 		}
 
 		root.find(".layer").each(function(j, subel) {
@@ -162,7 +352,9 @@
 					type = source.data("type");
 			switch (type) {
 				case "image":
-					layer = po.image();
+					if (!engine.image) return false;
+
+					layer = engine.image();
 					attrs.url = String;
 					attrs.visible = getBoolean;
 					attrs.tile = getBoolean;
@@ -171,9 +363,11 @@
 
 				case "geoJson":
 				case "geoJson-p":
+					if (!engine.geoJson) return false;
+
 					layer = (type == "geoJson-p")
-						? po.geoJson(po.queue.jsonp)
-						: po.geoJson();
+						? engine.geoJson(engine.queue.jsonp)
+						: engine.geoJson();
 					attrs.url = String;
 					attrs.visible = getBoolean;
 					attrs.scale = String;
@@ -189,8 +383,8 @@
 
 					var str = source.data("style"),
 							style = parseCSS(str);
-					if (style) {
-						var stylist = po.stylist();
+					if (style && engine.stylist) {
+						var stylist = engine.stylist();
 						for (var name in style) {
 							var value = style[name], js;
 							if (js = value.match(/^javascript:(.*)$/)) {
@@ -213,7 +407,7 @@
 						layer.on("load", stylist);
 
 						var linkTemplate = source.data("href");
-						if (linkTemplate) {
+						if (linkTemplate && engine.anchor) {
 							layer.on("load", function(e) {
 								var len = e.features.length;
 								for (var i = 0; i < len; i++) {
@@ -221,9 +415,14 @@
 									if (href) {
 										var o = e.features[i].element,
 												p = o.parentNode,
-												a = po.svg("a");
+												a = engine.anchor();
 										p.appendChild(a).appendChild(o);
-										a.setAttributeNS(po.ns.xlink, "href", href);
+										// FIXME: do this better
+										if (typeof engine.ns == "object") {
+											a.setAttributeNS(engine.ns.xlink, "href", href);
+										} else {
+											a.setAttribute("href", href);
+										}
 									}
 								}
 							});
@@ -233,7 +432,8 @@
 					break;
 
 				case "compass":
-					layer = po.compass();
+					if (!engine.compass) return false;
+					layer = engine.compass();
 					attrs.radius = getFloat;
 					attrs.speed = getFloat;
 					attrs.position = String;
@@ -242,7 +442,8 @@
 					break;
 
 				case "grid":
-					layer = po.grid();
+					if (!engine.grid) return false;
+					layer = engine.grid();
 					break;
 			}
 
@@ -265,8 +466,7 @@
 		});
 
 		if (markers.length) {
-			root.css("position", "relative");
-
+			console.log(["markers:", markers]);
 			var markerLayer = $("<div/>")
 				.attr("class", "markers")
 				.css({
@@ -293,15 +493,11 @@
 			});
 		}
 
+		// force a move
 		map.center(map.center());
 
+		// stash the map in the jQuery element data for future reference
 		return root.data("map", map);
 	}
-
-	$.fn.htmapl = function(defaults) {
-		return this.each(function(i, el) {
-			htmapl(el, defaults);
-		});
-	};
 
 })(jQuery);
