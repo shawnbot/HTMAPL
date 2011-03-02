@@ -1,0 +1,9 @@
+HTMAPL: HyperText Geographic Maps for jQuery
+
+HTMAPL is:
+* An basic HTML vocabulary for describing both interactive and static geographic
+  maps, with layers and markers
+* A Polymaps-inspired--but rendering engine-agnostic--interface for generating
+  geographic maps in JavaScript
+* A jQuery plugin that ties together these two concepts, making it
+	frighteningly easy to make web-native geographic maps

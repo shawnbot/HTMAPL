@@ -1,0 +1,4 @@
+* Get ModestMaps working with multiple image layers
+* Figure out the ModestMaps container weirdness (see: "resize bug" in modestmaps-htmapl.js)
+* Add unit tests
+* Test in IE, Opera, iPad, etc.
