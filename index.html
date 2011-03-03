@@ -14,17 +14,40 @@
 				width: 100%;
 				height: 200px;
 			}
+
+			pre {
+				width: 100%;
+				padding: 1ex;
+				overflow: auto;
+			}
 		</style>
+
+		<script type="text/javascript" defer="defer">
+			$(function() {
+				$("div.map").htmapl();
+			});
+		</script>
+
 	</head>
 	<body>
 
 		<h1>HTMAPL: HyperText Geographic Maps for jQuery</h1>
 
-		<div class="map interact" data-center="37.765,-122.413" data-zoom="11">
+		<div id="main" class="map interact" data-center="37.765,-122.413" data-zoom="11">
 			<div class="layer" data-type="image"
 				data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"></div>
 			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
 		</div>
+
+<pre>&lt;div id="main" class="map interact"
+  data-center="37.765,-122.413"
+  data-zoom="11"&gt;
+  &lt;div class="layer"
+    data-type="image"
+    data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"&gt;&lt;/div&gt;
+  &lt;div class="marker"
+    data-location="37.7647463,-122.41951"&gt;&lt;a href="http://stamen.com"&gt;Stamen&lt;/a&gt;&lt;/div&gt;
+&lt;/div&gt;</pre>
 
 		<h2>HTMAPL is:</h2>
 		<ol>
@@ -58,13 +81,6 @@
 		<a href="examples/modestpoly.html">possible</a> with
 		<a href="http://labjs.com/">LABjs</a> and
 		<a href="http://www.modernizr.com/">Modernizr</a>.</p>
-
-		<script type="text/javascript" defer="defer">
-			// do it.
-			$(function() {
-				$("div.map").htmapl();
-			});
-		</script>
 
 	</body>
 </html>
