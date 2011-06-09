@@ -1,0 +1,218 @@
+<html>
+    <head>
+        <title>HTMAPL: ModestMaps</title>
+        <script type="text/javascript" src="../../lib/jquery-1.5.min.js"></script>
+        <script type="text/javascript" src="../../lib/modestmaps.js"></script>
+        <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
+        <script type="text/javascript" src="../../src/htmapl.js"></script>
+        <style type="text/css">
+            @import url(style.css);
+        </style>
+    </head>
+    <body>
+
+        <h1>HTMAPL: Crimespotting</h1>
+
+        <div class="map interact" id="oakland"
+            data-url="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
+            data-center="37.804,-122.252"
+            data-zoom="12">
+            <div class="layer crimes"
+                data-type="geoJson-p"
+                data-url="http://oakland.crimespotting.org/crime-data?count=100&amp;dstart=2011-05-01&amp;dend=2011-05-31&amp;format=json">
+            </div>
+            <h2>Oakland</h2>
+        </div>
+
+        <div class="map interact" id="sanfrancisco"
+            data-url="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
+            data-center="37.762,-122.435"
+            data-zoom="12">
+            <div class="layer crimes"
+                data-type="geoJson-p"
+                data-url="http://sanfrancisco.crimespotting.org/crime-data?count=100&amp;dstart=2011-05-01&amp;dend=2011-05-31&amp;format=json">
+            </div>
+            <!--
+            <div class="layer labels" data-type="image"
+                data-url="http://acetate.geoiq.com/tiles/acetate-labels/{Z}/{X}/{Y}.png"></div>
+            -->
+            <h2>San Francisco</h2>
+        </div>
+
+        <div id="about">
+            <p>In this example we have maps of data from
+            <a href="http://oakland.crimespotting.org">Oakland</a> and
+            <a href="http://sanfrancisco.crimespotting.org">San Francisco</a>
+            Crimespotting. Each loads <a href="http://geojson.org/">GeoJSON</a>
+            features from the respective API
+            (<a href="http://oakland.crimespotting.org/api/">OAK</a>,
+            <a href="http://sanfrancisco.crimespotting.org/api/">SFO</a>) and
+            creates plain 'ol HTML markers with some styles to show and hide
+            information on hover.</p>
+        </div>
+
+        <script type="text/javascript" defer="defer">
+
+            function getCrimeGroup(crime_type) {
+                switch (crime_type) {
+                    case "AGGRAVATED ASSAULT":
+                    case "MURDER":
+                    case "ROBBERY":
+                    case "SIMPLE ASSAULT":
+                        return "violent";
+                    case "DISTURBING THE PEACE":
+                    case "NARCOTICS":
+                    case "ALCOHOL":
+                    case "PROSTITUTION":
+                        return "qol";
+                    case "THEFT":
+                    case "VEHICLE THEFT":
+                    case "VANDALISM":
+                    case "BURGLARY":
+                    case "ARSON":
+                        return "property";
+                }
+                return null;
+            }
+
+            function abbreviate(group) {
+                var words = group.split(" ");
+                if (words.length > 1) {
+                    return words[0].charAt(0) + words[1].charAt(0);
+                } else {
+                    return group.substr(0, 2);
+                }
+            } 
+
+            function getIcon(props) {
+                return "icons/{type}.png"
+                    .replace("{type}", props.crime_type.replace(/ /g, "_"));
+            }
+
+            function defer(fn, ms, context) {
+                return function() {
+                    var args = arguments, that = context || this;
+                    if (fn.timeout) clearTimeout(fn.timeout);
+                    return fn.timeout = setTimeout(function() {
+                        fn.apply(that, args);
+                    }, ms);
+                };
+            }
+
+            // do it.
+            $(function() {
+                $("div.map").htmapl().each(function() {
+                    var map = $(this),
+                        city = map.attr("id"),
+                        crimes = map.find(".layer.crimes").first(),
+                        layer = crimes.data("layer"),
+                        markers = [];
+
+                    function getHref(props, id) {
+                        return "http://{city}.crimespotting.org/{path}/{date}/{type}/{id}"
+                            .replace("{path}", id ? "crime" : "crimes")
+                            .replace("{city}", city)
+                            .replace("{date}", props.date_time.substr(0, 10))
+                            .replace("{type}", props.crime_type.replace(/ /g, "_"))
+                            .replace("{id}", id || "");
+                    }
+
+                    function over() {
+                        var that = this,
+                            type = $(this).data("crime_type");
+                        $(markers).each(function() {
+                            var o = $(this),
+                                match = (this == that || o.data("crime_type") == type);
+                            o.toggleClass("faded", !match); // .css("z-index", match ? 999 : 0);
+                        });
+                    }
+
+                    function out() {
+                        $(markers).removeClass("faded");
+                    }
+
+                    layer.template(function(feature) {
+                        var props = feature.properties,
+                            type = props.crime_type,
+                            group = getCrimeGroup(type);
+                        var marker = $("<a/>")
+                            .addClass("report")
+                            .addClass(group)
+                            .data("crime_type", type)
+                            .data("crime_group", group)
+                            .attr("href", getHref(props, feature.id))
+                            .append($("<span/>")
+                                .addClass("group")
+                                .text(abbreviate(type)))
+                            .append($("<span/>")
+                                .addClass("desc")
+                                .text(props.description)
+                                .append($("<span/>")
+                                    .addClass("date")
+                                    .text(" @ " + props.date_time)));
+                        marker.mouseover(defer(over, 100));
+                        marker.mouseout(defer(out, 100));
+                        markers.push(marker[0]);
+                        return marker[0]; // return the actual DOM node
+                    });
+
+                    /*
+                    try {
+                    var types = [
+                        "AGGRAVATED ASSAULT",
+                        "MURDER",
+                        "ROBBERY",
+                        "SIMPLE ASSAULT",
+                        "DISTURBING THE PEACE",
+                        "NARCOTICS",
+                        "ALCOHOL",
+                        "PROSTITUTION",
+                        "THEFT",
+                        "VEHICLE THEFT",
+                        "VANDALISM",
+                        "BURGLARY",
+                        "ARSON"
+                    ];
+                    function randomCrimeType() {
+                        return types[(Math.random() * (types.length - 1)) >> 0];
+                    }
+                    var extent = map.data("map").extent(),
+                        nw = {lon: extent[0].lon, lat: extent[0].lat},
+                        se = {lon: extent[1].lon, lat: extent[1].lat};
+                    function coord() {
+                        return [
+                            nw.lon + Math.random() * (se.lon - nw.lon),
+                            nw.lat + Math.random() * (se.lat - nw.lat)
+                        ];
+                    }
+                    var features = [1, 2, 3, 4, 5].map(function() {
+                        console.log("+++");
+                        return {
+                            id: 12345,
+                            properties: {
+                                crime_type: randomCrimeType(),
+                                date_time: "2011-05-2" + (Math.random() * 10) >> 0,
+                                desc: "dummy"
+                            },
+                            geometry: {
+                                type: "Point",
+                                coordinates: coord()
+                            }
+                        };
+                    });
+
+                    console.log("layer:", layer);
+                    layer.features(features);
+
+                    console.log(features);
+                    } catch (e) {
+                        console.warn(e);
+                    }
+                    */
+
+                });
+            });
+        </script>
+
+    </body>
+</html>

@@ -334,17 +334,6 @@
 			(function() {
 				var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
 
-                function swapContainers(previous, current) {
-                    // move the children over
-                    $(previous).children().appendTo(current);
-
-                    // copy style attributes
-                    current.style.cssText = previous.style.cssText;
-
-                    $(current).insertBefore(previous);
-                    $(previous).remove();
-                }
-
 				engine.map = function(container) {
 					/**
 					 * FIXME: we might need to defer initialization here, because it's
@@ -377,7 +366,7 @@
                             url = x;
                             if (typeof url === "function") {
                                 modest.setProviderAt(0, new mm.MapProvider(url));
-                            } else {
+                            } else if (x) {
                                 modest.setProviderAt(0, new mm.TemplatedMapProvider(x));
                             }
                             return map;
@@ -474,9 +463,8 @@
 				 * TODO: This also needs a po.dispatch()-like interface with "load" and
 				 * "unload" event handlers.
 				 */
-				engine.image = function() {
+				engine.image = function(container) {
 					var provider = NULL_PROVIDER,
-                        container = null,
                         url = null,
                         domains = null,
                         image = {};
@@ -495,15 +483,6 @@
                                 break;
                         }
                     }
-
-                    image.container = function(x) {
-                        if (arguments.length) {
-                            container = x;
-                            return image;
-                        } else {
-                            return container;
-                        }
-                    };
 
 					image.url = function(x) {
                         if (arguments.length) {
@@ -538,14 +517,17 @@
 				/**
                  * Experimental GeoJSON support.
 				 */
-				engine.geoJson = function(cue) {
-					var container = null,
-                        _layer = null,
+				engine.geoJson = function(container, cue) {
+					var _layer = null,
                         provider = NULL_PROVIDER,
-                        marker = $("<a>{id}</a>"),
+                        template = $(container).find(".template").remove(),
                         url = null,
                         tile = true,
                         layer = {};
+
+                    if (!template.length) {
+                        template = $("<a>{id}</a>");
+                    }
 
                     if (!cue) cue = engine.queue.json;
 
@@ -571,31 +553,41 @@
 
                     function buildMarker(feature) {
                         var clone = marker.clone();
-                        clone.text(templatize(clone.text(), feature.properties));
+                        clone.html(templatize(clone.html(), feature.properties));
                         return clone[0];
                     }
 
-                    layer.container = function(x) {
-                        if (arguments.length) {
-                            container = x;
-                            return layer;
-                        } else {
-                            return container;
-                        }
-                    };
-
                     layer.template = function(x) {
                         if (arguments.length) {
-                            marker = $(x).first().remove().attr("id", null);
+                            if (typeof x === "function") {
+                                buildMarker = x;
+                            } else {
+                                marker = $(x).first().remove().attr("id", null);
+                            }
                             return layer;
                         } else {
                             return marker;
                         }
                     };
 
+                    var features;
+                    layer.features = function(x) {
+                        if (arguments.length) {
+                            if (tile) {
+                                throw "We don't support setting features on a tiled layer yet.";
+                            } else {
+                                _layer.clear();
+                                onload({features: x});
+                                features = x;
+                            }
+                            return layer;
+                        } else {
+                            return features;
+                        }
+                    };
+
 					layer.tile = function(x) {
                         if (arguments.length) {
-                            console.log("layer.tile()", x);
                             tile = x;
                             return layer;
                         } else {
@@ -605,7 +597,6 @@
 
 					layer.url = function(x) {
                         if (arguments.length) {
-                            console.log("layer.url()", x);
                             url = x;
                             updateProvider();
                             return layer;
@@ -617,7 +608,6 @@
                     function onload(collection) {
                         var features = collection.features,
                             len = features.length;
-                        console.log("+ loaded! " + len + " features");
                         for (var i = 0; i < len; i++) {
                             var feature = features[i],
                                 marker = buildMarker(feature);
@@ -637,9 +627,7 @@
                                 );
                             };
                         } else {
-                            console.log("creating marker layer...");
                             _layer = new mm.MarkerLayer(map, provider, container);
-                            // console.log("cueing", url, "...");
                             cue(typeof url === "function" ? url.call(_layer) : url, onload);
                         }
                         if (_layer) {
@@ -766,7 +754,6 @@
         } else {
             container = el;
         }
-        console.log("container:", container);
 
 		var map = engine.map(container);
         if (typeof map.container === "function") {
@@ -840,7 +827,7 @@
 				case "image":
 					if (!engine.image) return false;
 
-					layer = engine.image();
+					layer = engine.image(subel);
 					attrs.url = String;
 					attrs.domains = getArray;
 					break;
@@ -850,8 +837,8 @@
 					if (!engine.geoJson) return false;
 
 					layer = (type == "geoJson-p")
-						? engine.geoJson(engine.queue.jsonp)
-						: engine.geoJson();
+						? engine.geoJson(subel, engine.queue.jsonp)
+						: engine.geoJson(subel);
 					attrs.url = String;
                     attrs.template = String;
 					// attrs.visible = getBoolean;
@@ -898,11 +885,14 @@
 
 			if (layer) {
 				applyData(source, layer, attrs);
-				if (source.id) layer.id(source.id);
+                htmapl.register(source, "layer", layer);
 				map.add(layer);
 			}
-		}).remove();
+		});
 
+        /**
+         * TODO: put these in an MM.MarkerLayer()
+         */
 		var markers = root.find(".marker").filter(function(i, m) {
 			var marker = $(this),
                 loc = getLatLon(marker.data("location"));
@@ -959,7 +949,13 @@
 		deferredInit.timeout = setTimeout(deferredInit, 10);
 
 		// stash the map in the jQuery element data for future reference
-		return root.data("map", map);
+        htmapl.register(root, "map", map);
+		return root;
 	}
+
+    htmapl.register = function(source, what, ref) {
+        // console.log("register():", source[0], what, ref);
+        source.data(what, ref);
+    };
 
 })(jQuery);
