@@ -1,6 +1,6 @@
 <html>
     <head>
-        <title>HTMAPL: ModestMaps</title>
+        <title>HTMAPL: Crimespotting</title>
         <script type="text/javascript" src="../../lib/jquery-1.5.min.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
@@ -14,7 +14,7 @@
         <h1>HTMAPL: Crimespotting</h1>
 
         <div class="map interact" id="oakland"
-            data-url="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
+            data-base="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
             data-center="37.804,-122.252"
             data-zoom="12">
             <div class="layer crimes"
@@ -25,7 +25,7 @@
         </div>
 
         <div class="map interact" id="sanfrancisco"
-            data-url="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
+            data-base="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
             data-center="37.762,-122.435"
             data-zoom="12">
             <div class="layer crimes"
@@ -72,7 +72,7 @@
                     case "ARSON":
                         return "property";
                 }
-                return null;
+                return "other";
             }
 
             function abbreviate(group) {
@@ -155,60 +155,6 @@
                         markers.push(marker[0]);
                         return marker[0]; // return the actual DOM node
                     });
-
-                    /*
-                    try {
-                    var types = [
-                        "AGGRAVATED ASSAULT",
-                        "MURDER",
-                        "ROBBERY",
-                        "SIMPLE ASSAULT",
-                        "DISTURBING THE PEACE",
-                        "NARCOTICS",
-                        "ALCOHOL",
-                        "PROSTITUTION",
-                        "THEFT",
-                        "VEHICLE THEFT",
-                        "VANDALISM",
-                        "BURGLARY",
-                        "ARSON"
-                    ];
-                    function randomCrimeType() {
-                        return types[(Math.random() * (types.length - 1)) >> 0];
-                    }
-                    var extent = map.data("map").extent(),
-                        nw = {lon: extent[0].lon, lat: extent[0].lat},
-                        se = {lon: extent[1].lon, lat: extent[1].lat};
-                    function coord() {
-                        return [
-                            nw.lon + Math.random() * (se.lon - nw.lon),
-                            nw.lat + Math.random() * (se.lat - nw.lat)
-                        ];
-                    }
-                    var features = [1, 2, 3, 4, 5].map(function() {
-                        console.log("+++");
-                        return {
-                            id: 12345,
-                            properties: {
-                                crime_type: randomCrimeType(),
-                                date_time: "2011-05-2" + (Math.random() * 10) >> 0,
-                                desc: "dummy"
-                            },
-                            geometry: {
-                                type: "Point",
-                                coordinates: coord()
-                            }
-                        };
-                    });
-
-                    console.log("layer:", layer);
-                    layer.features(features);
-
-                    console.log(features);
-                    } catch (e) {
-                        console.warn(e);
-                    }
-                    */
 
                 });
             });

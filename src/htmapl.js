@@ -360,10 +360,10 @@
                         }
                     }
 
-                    var url;
-                    map.url = function(x) {
+                    var base;
+                    map.base = function(x) {
                         if (arguments.length) {
-                            url = x;
+                            base = x;
                             if (typeof url === "function") {
                                 modest.setProviderAt(0, new mm.MapProvider(url));
                             } else if (x) {
@@ -371,7 +371,7 @@
                             }
                             return map;
                         } else {
-                            return url;
+                            return base;
                         }
                     };
 
@@ -410,9 +410,8 @@
 
 					map.zoomRange = function(range) {
 						if (arguments.length) {
-							modest.setMinZoom(range[0]);
-							modest.setMaxZoom(range[1]);
-							tryToDraw();
+                            modest.provider.setZoomRange(Number(range[0]), Number(range[1]));
+                            tryToDraw();
 							return map;
 						} else {
 							return [modest.minZoom, modest.maxZoom];
@@ -769,7 +768,7 @@
 
 		applyData(root, map, {
             // base tile provider in XYZ format
-            url:        String,
+            base:       String,
 			// extent comes in "lon,lat,lon,lat" format
 			extent: 	getExtent,
 			// center comes in "lon,lat" format
@@ -777,7 +776,7 @@
 			// zoom is a float
 			zoom: 		getFloat,
 			// zoom is a float
-			zoomRange: getArray,
+			zoomRange:  getArray,
 			// size comes in "x,y"
 			size: 		getXY,
 			// tileSize comes in "x,y"
