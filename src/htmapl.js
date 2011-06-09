@@ -159,11 +159,11 @@
 			var len = e.features.length;
 			for (var i = 0; i < len; i++) {
 				var feat = e.features[i],
-						href = templatize(template, feat.data.properties);
+                    href = templatize(template, feat.data.properties);
 				if (href) {
 					var o = feat.element,
-							p = o.parentNode,
-							a = engine.anchor();
+                        p = o.parentNode,
+                        a = engine.anchor();
 					p.appendChild(a).appendChild(o);
 					// FIXME: do this better
 					if (typeof engine.ns != "undefined") {
@@ -219,24 +219,27 @@
 	 */
 	function applyData(obj, map, attrs) {
 		for (var key in attrs) {
-			var transform = attrs[key],
-					data = obj.data(key),
-					value = null;
+			var data = attrs[key],
+                value = null;
 			// call it as transform(data) with the jQuery object as its context
-			if (typeof transform == "function") {
+			if (typeof data == "function") {
+				var transform = data;
+				data = obj.data(key);
 				value = transform.call(obj, data);
 			// otherwise, just use the string value
 			// XXX: could we do something with attrs[key] here?
 			} else {
-				// console.log(["got value for", key, data]);
 				value = data;
+				if (typeof data == "undefined") {
+				}
+				// console.log(["got value for", key, value]);
 			}
 			// don't apply null values
 			if (value == null) {
 				continue;
 			}
 			// apply as function if it is one
-			if (typeof map[key] == "function") {
+			if (typeof map[key] === "function") {
 				// console.log("map." + key + "(" + JSON.stringify(value) + ")");
 				map[key](value);
 			// or just set the key on the map object
@@ -308,7 +311,7 @@
 		var engine = {};
 
 		// Polymaps takes priority
-		if (typeof org != "undefined" && org.polymaps) {
+		if (typeof org !== "undefined" && typeof org.polymaps !== "undefined") {
 			var po = org.polymaps;
 
 			po.container = function() {
@@ -323,131 +326,128 @@
 		}
 
 		// Then comes the ModestMaps compatibility layer
-		else if (typeof com != "undefined" && com.modestmaps) {
+		else if (typeof com !== "undefined" && typeof com.modestmaps !== "undefined") {
 
 			var mm = com.modestmaps,
-					engine = mm.htmapl = {};
+                engine = mm.htmapl = {};
 
 			(function() {
 				var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
 
-				var id = 0;
-				engine.container = function() {
-					// FIXME: this is kind of hacky
-					var container = document.createElement("div");
-					container.setAttribute("class", "modestmap");
-					container.setAttribute("id", "mmap" + (++id));
-					return container;
-				};
+                function swapContainers(previous, current) {
+                    // move the children over
+                    $(previous).children().appendTo(current);
 
-				engine.map = function() {
+                    // copy style attributes
+                    current.style.cssText = previous.style.cssText;
+
+                    $(current).insertBefore(previous);
+                    $(previous).remove();
+                }
+
+				engine.map = function(container) {
 					/**
 					 * FIXME: we might need to defer initialization here, because it's
 					 * non-trivial to add/remove event handlers after the Map instance has been
 					 * created.
 					 */
 					// Our initial contianer is a detached <div>
-					var container = document.createElement("div"),
-							_map = new mm.Map(container, NULL_PROVIDER, null, []),
-							map = {},
-							// style attributes to pass along to new containers
-							restyle = ["position", "padding", "overflow"];
+					var modest = new mm.Map(container, NULL_PROVIDER, null, []),
+                        map = {modest: modest};
 
 					// just so we can make sure this doesn't stick around
-					container.setAttribute("class", "dummy");
+					$(container).addClass("modestmap");
 
 					// expose all of the normal stuff
-					map.locationPoint = function(loc) { return _map.locationPoint(loc); };
-					map.pointLocation = function(p) { return _map.pointLocation(p); };
-					map.coordinatePoint = function(c) { return _map.coordinatePoint(c); };
-					map.pointCoordinate = function(p) { return _map.pointCoordinate(p); };
+					map.locationPoint = function(loc) { return modest.locationPoint(loc); };
+					map.pointLocation = function(p) { return modest.pointLocation(p); };
+					map.coordinatePoint = function(c) { return modest.coordinatePoint(c); };
+					map.pointCoordinate = function(p) { return modest.pointCoordinate(p); };
 
-					// container getter/setter; NOTE: this is tricky!
-					map.container = function(c) {
-						if (arguments.length) {
-							// move all of the existing container's children to the new parent
-							while (container.firstChild) {
-								c.appendChild(container.firstChild);
-							}
-							// XXX: apply CSS from the old container
-							for (var i = 0; i < restyle.length; i++) {
-								var s = restyle[i];
-								c.style[s] = container.style[s];
-							}
+                    function tryToDraw() {
+                        try {
+                            modest.draw();
+                        } catch (e) {
+                        }
+                    }
 
-							// then just hack the parent
-							_map.parent = container = c;
-							// XXX: this is a bit hacky, because we're using a nested container of
-							// a relatively positioned parent. So we set its CSS width and height
-							// to 100%, then set the map's size to its calculated dimensions.
-							container.style.width = container.style.height = "100%";
-							var $con = $(container),
-									size = {x: $con.innerWidth(), y: $con.innerHeight()};
-							map.size(size);
-
-							return map;
-						}
-						return container;
-					};
+                    var url;
+                    map.url = function(x) {
+                        if (arguments.length) {
+                            url = x;
+                            if (typeof url === "function") {
+                                modest.setProviderAt(0, new mm.MapProvider(url));
+                            } else {
+                                modest.setProviderAt(0, new mm.TemplatedMapProvider(x));
+                            }
+                            return map;
+                        } else {
+                            return url;
+                        }
+                    };
 
 					// size getter/setter
 					map.size = function(dims) {
 						if (arguments.length) {
-							_map.dimensions = dims;
-							_map.draw();
+							modest.dimensions = dims;
+							tryToDraw();
 							return map;
 						} else {
-							return _map.dimensions;
+							return modest.dimensions;
 						}
 					};
 
 					map.center = function(x) {
 						if (arguments.length) {
-							_map.setCenter(x);
+							modest.setCenter(x);
 							return map;
 						} else {
-							return _map.getCenter();
+							return modest.getCenter();
 						}
 					};
 
 					map.zoom = function(x) {
 						if (arguments.length) {
-							_map.setZoom(x);
+							modest.setZoom(x);
 							return map;
 						} else {
-							return _map.getZoom();
+							return modest.getZoom();
 						}
 					};
 
+					map.zoomIn = function() { modest.zoomIn(); };
+					map.zoomOut = function() { modest.zoomOut(); };
+					map.zoomBy = function(x) { modest.zoomBy(x); }
+
 					map.zoomRange = function(range) {
 						if (arguments.length) {
-							_map.setMinZoom(range[0]);
-							_map.setMaxZoom(range[1]);
-							_map.draw();
+							modest.setMinZoom(range[0]);
+							modest.setMaxZoom(range[1]);
+							tryToDraw();
 							return map;
 						} else {
-							return [_map.minZoom, map.maxZoom];
+							return [modest.minZoom, modest.maxZoom];
 						}
 					};
 
 					map.extent = function(e) {
 						if (arguments.length) {
-							_map.setExtent(e);
+							modest.setExtent(e);
 							return map;
 						} else {
-							return _map.getExtent();
+							return modest.getExtent();
 						}
 					};
 
 					// add a layer
 					map.add = function(layer) {
-						layer.map(_map);
+                        layer.map(modest);
 						return map;
 					};
 
 					// remove a layer
 					map.remove = function(layer) {
-						layer.map(null);
+                        modest.removeProvider(layer);
 						return map;
 					};
 
@@ -456,11 +456,11 @@
 					};
 					// event dispatch wrappers
 					map.on = function(e, handler) {
-						_map.addCallback(eMap[e] || e, handler);
+						modest.addCallback(eMap[e] || e, handler);
 						return map;
 					};
 					map.off = function(e, handler) {
-						_map.removeCallback(eMap[e] || e, handler);
+						modest.removeCallback(eMap[e] || e, handler);
 						return map;
 					};
 
@@ -471,43 +471,199 @@
 				 * The image() generator wraps com.modestmaps.MapProvider with Polymaps-like
 				 * functionality.
 				 *
-				 * FIXME: This should actually create slaved Map instances, to deal with
-				 * ModestMaps' inability to manage multi-layer image providers.
-				 *
 				 * TODO: This also needs a po.dispatch()-like interface with "load" and
 				 * "unload" event handlers.
 				 */
 				engine.image = function() {
-					var template = "",
-							provider = NULL_PROVIDER,
-							image = {};
+					var provider = NULL_PROVIDER,
+                        container = null,
+                        url = null,
+                        domains = null,
+                        image = {};
+
+                    function updateProvider() {
+                        switch (typeof url) {
+                            case "function":
+                                provider = new mm.MapProvider(url);
+                                break;
+                            case "string":
+                                provider = new mm.TemplatedMapProvider(url, domains);
+                                break;
+                            case "undefined":
+                            default:
+                                provider = NULL_PROVIDER;
+                                break;
+                        }
+                    }
+
+                    image.container = function(x) {
+                        if (arguments.length) {
+                            container = x;
+                            return image;
+                        } else {
+                            return container;
+                        }
+                    };
 
 					image.url = function(x) {
-						if (arguments.length) {
-							if (typeof template == "function") {
-								template = x;
-							} else {
-								var tmpl = x;
-								template = function(c) {
-									return $.fn.htmapl.templatize(tmpl, {Z: c.zoom, X: c.column, Y: c.row});
-								};
-							}
-							provider = new mm.MapProvider(template);
-							return image;
-						} else {
-							return template;
-						}
+                        if (arguments.length) {
+                            url = x;
+                            updateProvider();
+                            return image;
+                        } else {
+                            return provider;
+                        }
 					};
 
-					image.map = function(m) {
-						if (arguments.length) {
-							m.setProvider(provider);
-						} else {
-							return null;
-						}
-					};
+                    image.domains = function(x) {
+                        if (arguments.length) {
+                            domains = x;
+                            updateProvider();
+                            return image;
+                        } else {
+                            return provider;
+                        }
+                    };
+
+                    image.map = function(map) {
+                        var layer = new mm.Layer(map, provider, container);
+                        map.layers.push(layer);
+                        map.draw();
+                        return image;
+                    };
 
 					return image;
+				};
+
+				/**
+                 * Experimental GeoJSON support.
+				 */
+				engine.geoJson = function(cue) {
+					var container = null,
+                        _layer = null,
+                        provider = NULL_PROVIDER,
+                        marker = $("<a>{id}</a>"),
+                        url = null,
+                        tile = true,
+                        layer = {};
+
+                    if (!cue) cue = engine.queue.json;
+
+                    function updateProvider() {
+                        switch (typeof url) {
+                            case "function":
+                                provider = new mm.MapProvider(url);
+                                break;
+                            case "string":
+                                if (url.match(/{.+}/)) {
+                                    provider = new mm.TemplatedMapProvider(url, domains);
+                                    tile = true;
+                                } else {
+                                    tile = false;
+                                }
+                                break;
+                            case "undefined":
+                            default:
+                                provider = NULL_PROVIDER;
+                                break;
+                        }
+                    }
+
+                    function buildMarker(feature) {
+                        var clone = marker.clone();
+                        clone.text(templatize(clone.text(), feature.properties));
+                        return clone[0];
+                    }
+
+                    layer.container = function(x) {
+                        if (arguments.length) {
+                            container = x;
+                            return layer;
+                        } else {
+                            return container;
+                        }
+                    };
+
+                    layer.template = function(x) {
+                        if (arguments.length) {
+                            marker = $(x).first().remove().attr("id", null);
+                            return layer;
+                        } else {
+                            return marker;
+                        }
+                    };
+
+					layer.tile = function(x) {
+                        if (arguments.length) {
+                            console.log("layer.tile()", x);
+                            tile = x;
+                            return layer;
+                        } else {
+                            return tile;
+                        }
+					};
+
+					layer.url = function(x) {
+                        if (arguments.length) {
+                            console.log("layer.url()", x);
+                            url = x;
+                            updateProvider();
+                            return layer;
+                        } else {
+                            return layer.template_provider;
+                        }
+					};
+
+                    function onload(collection) {
+                        var features = collection.features,
+                            len = features.length;
+                        console.log("+ loaded! " + len + " features");
+                        for (var i = 0; i < len; i++) {
+                            var feature = features[i],
+                                marker = buildMarker(feature);
+                            _layer.addMarker(marker, feature);
+                        }
+                    }
+
+                    layer.map = function(map) {
+                        if (tile) {
+                            var json = new mm.GeoJSONProvider(provider, buildMarker);
+                            _layer = new mm.Layer(map, json, container);
+                            _layer.load = function(url, success, error) {
+                                return cue(url,
+                                    function(collection) {
+                                        success.call(layer, collection);
+                                    }
+                                );
+                            };
+                        } else {
+                            console.log("creating marker layer...");
+                            _layer = new mm.MarkerLayer(map, provider, container);
+                            // console.log("cueing", url, "...");
+                            cue(typeof url === "function" ? url.call(_layer) : url, onload);
+                        }
+                        if (_layer) {
+                            map.layers.push(_layer);
+                            map.draw();
+                        }
+                        return layer;
+                    };
+
+					var eMap = {
+						load: "load",
+                        unload: "unload"
+					};
+					// event dispatch wrappers
+					layer.on = function(e, handler) {
+						provider.addCallback(eMap[e] || e, handler);
+						return map;
+					};
+					layer.off = function(e, handler) {
+						provider.removeCallback(eMap[e] || e, handler);
+						return map;
+					};
+
+					return layer;
 				};
 
 				/**
@@ -518,8 +674,8 @@
 				function handler(cls) {
 					return function() {
 						var wrapper = {},
-								handler = new cls(),
-								map = null;
+                            handler = new cls(),
+                            map = null;
 						
 						wrapper.map = function(x) {
 							if (arguments.length) {
@@ -542,6 +698,22 @@
 				// TODO: integrate some of Tom's other handlers, or write them here?
 				// engine.arrow = handler(mm.KeyboardHandler);
 				// engine.gesture = handler(mm.GestureHandler);
+
+                engine.queue = {};
+                engine.queue.json = function(url, success, error) {
+                    return $.ajax(url, {
+                        dataType: "json",
+                        success: success,
+                        error: error
+                    });
+                };
+                engine.queue.jsonp = function(url, success, error) {
+                    return $.ajax(url, {
+                        dataType: "jsonp",
+                        success: success,
+                        error: error
+                    });
+                };
 
 			})();
 			return engine;
@@ -584,13 +756,22 @@
 
 		// the root element
 		var root = $(el),
-				container = engine.container();
+            container;
 
-		if (container) el.insertBefore(container, null);
-		else container = el;
+        if (typeof engine.container === "function") {
+            container = engine.container();
+            if (container) {
+                el.insertBefore(container, null);
+            }
+        } else {
+            container = el;
+        }
+        console.log("container:", container);
 
-		var map = engine.map();
-		map.container(container);
+		var map = engine.map(container);
+        if (typeof map.container === "function") {
+            map.container(container);
+        }
 
 		// always do relative positioning in the container
 		root.css("position", "relative");
@@ -600,6 +781,8 @@
 		}
 
 		applyData(root, map, {
+            // base tile provider in XYZ format
+            url:        String,
 			// extent comes in "lon,lat,lon,lat" format
 			extent: 	getExtent,
 			// center comes in "lon,lat" format
@@ -650,20 +833,16 @@
 
 		root.find(".layer").each(function(j, subel) {
 			var source = $(subel),
-					layer,
-					attrs = {},
-					type = source.data("type");
+                layer,
+                attrs = {},
+                type = source.data("type");
 			switch (type) {
 				case "image":
 					if (!engine.image) return false;
 
 					layer = engine.image();
 					attrs.url = String;
-					/*
-					attrs.visible = getBoolean;
-					attrs.tile = getBoolean;
-					attrs.zoom = getFloat;
-					*/
+					attrs.domains = getArray;
 					break;
 
 				case "geoJson":
@@ -674,20 +853,22 @@
 						? engine.geoJson(engine.queue.jsonp)
 						: engine.geoJson();
 					attrs.url = String;
+                    attrs.template = String;
 					// attrs.visible = getBoolean;
 					attrs.scale = String;
 					attrs.tile = getBoolean;
 					attrs.clip = getBoolean;
 					attrs.zoom = getFloat;
+
 					// allow string parsing of JSON features?
-					/*
-					if (JSON && typeof JSON.parse === "function") {
+                    /*
+					if (typeof JSON !== "undefined" && typeof JSON.parse === "function") {
 						attrs.features = JSON.parse;
 					}
-					*/
+                    */
 
 					var str = source.data("style"),
-							style = parseCSS(str);
+                        style = parseCSS(str);
 					if (style && engine.stylist) {
 						applyStyle(layer, source, style, engine);
 					}
@@ -724,7 +905,7 @@
 
 		var markers = root.find(".marker").filter(function(i, m) {
 			var marker = $(this),
-					loc = getLatLon(marker.data("location"));
+                loc = getLatLon(marker.data("location"));
 			if (loc) {
 				marker.data("location", loc);
 				marker.css("position", "absolute");

@@ -3,6 +3,7 @@
 		<title>HTMAPL: ModestMaps</title>
 		<script type="text/javascript" src="../lib/jquery-1.5.min.js"></script>
 		<script type="text/javascript" src="../lib/modestmaps.js"></script>
+		<script type="text/javascript" src="../lib/modestmaps.markers.js"></script>
 		<script type="text/javascript" src="../src/htmapl.js"></script>
 		<script type="text/javascript">
 			function toggleTiles() {
@@ -15,6 +16,8 @@
 				border: 1px dotted #f0f;
 				margin: -1px 0 0 -1px;
 			}
+
+            #crime-template { display: none; }
 		</style>
 	</head>
 	<body>
@@ -23,9 +26,18 @@
 
 		<p>This map is interactive, and overlays a pure HTML &lt;div&gt; with absolutely
 		positioned markers styled with CSS.</p>
-		<div class="map narrow interact" data-center="37.765,-122.413" data-zoom="11">
+        <div class="map narrow interact"
+            data-url="http://acetate.geoiq.com/tiles/acetate-bg/{Z}/{X}/{Y}.png"
+            data-center="37.765,-122.413"
+            data-zoom="11">
 			<div class="layer" data-type="image"
-				data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"></div>
+                data-url="http://acetate.geoiq.com/tiles/acetate-bg/{Z}/{X}/{Y}.png"></div>
+            <div class="layer" data-type="geoJson-p" data-template="#crime-template"
+                data-url="http://sanfrancisco.crimespotting.org/crime-data?count=100&amp;format=json">
+                <a id="crime-template">{crime_type}</a>
+            </div>
+			<div class="layer" data-type="image"
+                data-url="http://acetate.geoiq.com/tiles/acetate-labels/{Z}/{X}/{Y}.png"></div>
 			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
 		</div>
 
@@ -39,9 +51,11 @@
 		<script type="text/javascript" defer="defer">
 			// do it.
 			$(function() {
-				$("div.map").htmapl().each(function() {
-					// var map = $(this).data("map");
-				});
+                try {
+                    $("div.map").htmapl();
+                } catch (e) {
+                    console.warn("ERROR:", e.message);
+                }
 			});
 		</script>
 
