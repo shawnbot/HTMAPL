@@ -1,5 +1,18 @@
 (function($) {
 
+    /**
+     * Defer a function call and cancel any other deferrals.
+     */
+    function defer(ms, fn, context) {
+        return function() {
+            if (fn.timeout) clearTimeout(fn.timeout);
+            var args = arguments;
+            return fn.timeout = setTimeout(function() {
+                fn.apply(context, args);
+            }, ms);
+        };
+    }
+
  	/**
 	 * Parses mustached "variables" in a string and replaces them with property
 	 * values from another object. E.g.:
@@ -8,9 +21,30 @@
 	 */
  	function templatize(template, obj) {
 		return template.replace(/{([^}]+)}/g, function(s, prop) {
-			return obj[prop];
+			return obj[prop] || "";
 		});
 	}
+
+    /**
+     * Parse subdomain replacements from a URL in the following format:
+     *
+     * http://ec.{subdomains:t0,t1,t2}.tiles.virtualearth.net/tiles/...
+     * or http://ec.{S:t0,t1,t2}.tiles.virtualearth.net/tiles/...
+     *
+     * With the ModestMaps TemplatedMapProvider replacement and returns an
+     * object with "url" and "subdomains" properties.
+     */
+    function getTileParams(url) {
+        var params = {
+            url: url
+        };
+        var match;
+        if (match = url.match(/{(subdomains):([^}]+)}/)) {
+            params.subdomains = match[2].split(/\s*,\s*/);
+            params.url = url.replace(match[0], "{" + match[1] + "}");
+        }
+        return params;
+    }
 
 	/**
 	 * Parsing Functions
@@ -27,8 +61,8 @@
  	function getLatLon(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/),
-					lat = parseFloat(parts[0]),
-					lon = parseFloat(parts[1]);
+                lat = parseFloat(parts[0]),
+                lon = parseFloat(parts[1]);
 			return {lon: lon, lat: lat};
 		}
 		return null;
@@ -41,8 +75,8 @@
  	function getXY(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/),
-					x = parseInt(parts[0]),
-					y = parseInt(parts[1]);
+                x = parseInt(parts[0]),
+                y = parseInt(parts[1]);
 			return {x: x, y: y};
 		}
 		return null;
@@ -58,13 +92,13 @@
 			var parts = str.split(/\s*,\s*/);
 			if (parts.length == 4) {
 				var lat1 = parseFloat(parts[0]),
-						lon1 = parseFloat(parts[1]),
-						lat2 = parseFloat(parts[2]),
-						lon2 = parseFloat(parts[3]);
-				return [{lon: Math.min(lon1, lon2),
-								 lat: Math.max(lat1, lat2)},
-							  {lon: Math.max(lon1, lon2),
-								 lat: Math.min(lat1, lat2)}];
+                    lon1 = parseFloat(parts[1]),
+                    lat2 = parseFloat(parts[2]),
+                    lon2 = parseFloat(parts[3]);
+                return [{lon: Math.min(lon1, lon2),
+                         lat: Math.max(lat1, lat2)},
+                        {lon: Math.max(lon1, lon2),
+                         lat: Math.min(lat1, lat2)}];
 			}
 		}
 		return null;
@@ -293,7 +327,6 @@
 	 *   clip(bool)
 	 *   zoom(int)
 	 * - interact() handlers for panning and zooming directly
-	 * - compass() for attaching explict panning and zooming UI
 	 *
 	 * Note: For parity between HTML (ModestMaps) and non-HTML (Polymaps) renderers,
 	 * engines should also implement the following methods to create DOM
@@ -344,6 +377,12 @@
 					var modest = new mm.Map(container, NULL_PROVIDER, null, []),
                         map = {modest: modest};
 
+                    // move the base layer to the back
+                    console.log("base layer:", modest.layers[0].parent);
+                    console.log("container.firstChild:", typeof container.firstChild);
+                    container.insertBefore(modest.layers[0].parent, container.firstChild);
+                    $(modest.layers[0].parent).css("z-index", 0);
+
 					// just so we can make sure this doesn't stick around
 					$(container).addClass("modestmap");
 
@@ -367,7 +406,8 @@
                             if (typeof url === "function") {
                                 modest.setProviderAt(0, new mm.MapProvider(url));
                             } else if (x) {
-                                modest.setProviderAt(0, new mm.TemplatedMapProvider(x));
+                                var params = getTileParams(x);
+                                modest.setProviderAt(0, new mm.TemplatedMapProvider(params.url, params.subdomains));
                             }
                             return map;
                         } else {
@@ -465,7 +505,6 @@
 				engine.image = function(container) {
 					var provider = NULL_PROVIDER,
                         url = null,
-                        domains = null,
                         image = {};
 
                     function updateProvider() {
@@ -474,7 +513,8 @@
                                 provider = new mm.MapProvider(url);
                                 break;
                             case "string":
-                                provider = new mm.TemplatedMapProvider(url, domains);
+                                var params = getTileParams(x);
+                                provider = new mm.TemplatedMapProvider(params.url, params.subdomains);
                                 break;
                             case "undefined":
                             default:
@@ -492,16 +532,6 @@
                             return provider;
                         }
 					};
-
-                    image.domains = function(x) {
-                        if (arguments.length) {
-                            domains = x;
-                            updateProvider();
-                            return image;
-                        } else {
-                            return provider;
-                        }
-                    };
 
                     image.map = function(map) {
                         var layer = new mm.Layer(map, provider, container);
@@ -537,7 +567,7 @@
                                 break;
                             case "string":
                                 if (url.match(/{.+}/)) {
-                                    provider = new mm.TemplatedMapProvider(url, domains);
+                                    provider = new mm.TemplatedMapProvider(url);
                                     tile = true;
                                 } else {
                                     tile = false;
@@ -653,6 +683,82 @@
 					return layer;
 				};
 
+                engine.markers = function(container) {
+                    var markers = {},
+                        map = null,
+                        layer = null;
+
+                    markers.map = function(x) {
+                        if (arguments.length) {
+                            map = x;
+                            layer = new mm.MarkerLayer(map, NULL_PROVIDER, container);
+                            return markers;
+                        } else {
+                            return map;
+                        }
+                    };
+
+                    markers.addMarker = function(el, loc) {
+                        return layer.addMarker(el, loc);
+                    };
+
+                    markers.removeMarker = function(el) {
+                        return layer.removeMarker(el);
+                    };
+
+                    return markers;
+                };
+
+                engine.hash = function() {
+                    var hash = {},
+                        map = null;
+
+                    hash.parse = function(fragment) {
+                        if (fragment.charAt(0) == "#") {
+                            var parts = fragment.substr(1).split("/").map(parseFloat);
+                            return {zoom: parts[0], center: {lat: parts[1], lon: parts[2]}};
+                        } else {
+                            return false;
+                        }
+                    };
+
+                    hash.read = function(fragment) {
+                        var loc = hash.parse(fragment);
+                        if (!isNaN(loc.zoom) && !isNaN(loc.center.lat) && !isNaN(loc.center.lon)) {
+                            map.setCenterZoom(loc.center, loc.zoom);
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    };
+
+                    hash.write = function() {
+                        var center = map.getCenter(),
+                            zoom = map.getZoom(),
+                            precision = Math.max(0, Math.ceil(Math.log(zoom) / Math.LN2));
+                        if (!isNaN(center.lon) && !isNaN(center.lat) && !isNaN(zoom)) {
+                            location.hash = "#" + [zoom, center.lat.toFixed(precision), center.lon.toFixed(precision)].join("/");
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    };
+
+                    var update = defer(100, hash.write);
+                    hash.map = function(x) {
+                        if (map) {
+                            map.removeCallback("drawn", update);
+                        }
+                        map = x;
+                        if (map) {
+                            hash.read(window.location.hash);
+                            map.addCallback("drawn", update);
+                        }
+                    };
+
+                    return hash;
+                };
+
 				/**
 				 * This is a layer "generator" for ModestMaps event handlers.
 				 *
@@ -725,9 +831,6 @@
 				return {};
 			},
 			geoJson: function() {
-				return {};
-			},
-			compass: function() {
 				return {};
 			},
 			interact: function() {
@@ -828,7 +931,7 @@
 
 					layer = engine.image(subel);
 					attrs.url = String;
-					attrs.domains = getArray;
+					// attrs.domains = getArray;
 					break;
 
 				case "geoJson":
@@ -865,21 +968,6 @@
 					}
 
 					break;
-
-				case "compass":
-					if (!engine.compass) return false;
-					layer = engine.compass();
-					attrs.radius = getFloat;
-					attrs.speed = getFloat;
-					attrs.position = String;
-					attrs.pan = String;
-					attrs.zoom = String;
-					break;
-
-				case "grid":
-					if (!engine.grid) return false;
-					layer = engine.grid();
-					break;
 			}
 
 			if (layer) {
@@ -890,9 +978,9 @@
 		});
 
         /**
-         * TODO: put these in an MM.MarkerLayer()
+         * Drop any additional markers in a marker layer.
          */
-		var markers = root.find(".marker").filter(function(i, m) {
+		var markers = root.children(".marker").filter(function(i, m) {
 			var marker = $(this),
                 loc = getLatLon(marker.data("location"));
 			if (loc) {
@@ -903,32 +991,13 @@
 			return false;
 		});
 
-		if (markers.length) {
-			var markerLayer = $("<div/>")
-				.attr("class", "markers")
-				.css({
-					position: "absolute",
-					left: 0, top: 0
-				})
-				.appendTo(root);
-
-			markers.appendTo(markerLayer);
-
-			map.on("move", function() {
-				var size = map.size();
-				markers.each(function() {
-					var marker = $(this),
-							loc = marker.data("location"),
-							pos = map.locationPoint(loc);
-					if (pos.x >= 0 && pos.x <= size.x && pos.y >= 0 && pos.y <= size.y) {
-						marker.css("left", px(pos.x)).css("top", px(pos.y));
-						marker.css("display", "");
-					} else {
-						marker.css("display", "none");
-					}
-				});
-			});
-		}
+        if (markers.length && typeof engine.markers === "function") {
+            var layer = engine.markers();
+            map.add(layer);
+            markers.each(function() {
+                layer.addMarker(this, $(this).data("location"));
+            });
+        }
 
 		// force a move
 		map.center(map.center());

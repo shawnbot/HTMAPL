@@ -14,7 +14,7 @@
         <h1>HTMAPL: Crimespotting</h1>
 
         <div class="map interact" id="oakland"
-            data-base="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
+            data-base="http://ecn.t{subdomains:0,1,2}.tiles.virtualearth.net/tiles/r{quadkey}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"
             data-center="37.804,-122.252"
             data-zoom="12">
             <div class="layer crimes"
@@ -101,6 +101,7 @@
 
             // do it.
             $(function() {
+                try {
                 $("div.map").htmapl().each(function() {
                     var map = $(this),
                         city = map.attr("id"),
@@ -150,13 +151,16 @@
                                 .append($("<span/>")
                                     .addClass("date")
                                     .text(" @ " + props.date_time)));
-                        marker.mouseover(defer(over, 100));
-                        marker.mouseout(defer(out, 100));
+                        marker.mouseover(over);
+                        marker.mouseout(out);
                         markers.push(marker[0]);
                         return marker[0]; // return the actual DOM node
                     });
 
                 });
+                } catch (e) {
+                    console.error(e);
+                }
             });
         </script>
 
