@@ -3,6 +3,7 @@
 		<title>HTMAPL: HyperText Geographic Maps for jQuery</title>
 		<script type="text/javascript" src="lib/jquery-1.5.min.js"></script>
 		<script type="text/javascript" src="lib/modestmaps.js"></script>
+		<script type="text/javascript" src="lib/modestmaps.markers.js"></script>
 		<script type="text/javascript" src="src/htmapl.js"></script>
 		<style type="text/css">
 			@import url(examples/style/examples.css);
@@ -25,18 +26,11 @@
 
 		<h1>HTMAPL: HyperText Geographic Maps for jQuery</h1>
 
-		<div id="main" class="map interact" data-center="37.765,-122.413" data-zoom="11">
-			<div class="layer" data-type="image"
-				data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"></div>
+		<div id="main" class="map" data-center="37.765,-122.413" data-zoom="11">
 			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
 		</div>
 
-<pre>&lt;div id="main" class="map interact"
-  data-center="37.765,-122.413"
-  data-zoom="11"&gt;
-  &lt;div class="layer"
-    data-type="image"
-    data-url="http://c.tile.cloudmade.com/1a1b06b230af4efdbb989ea99e9841af/998/256/{Z}/{X}/{Y}.png"&gt;&lt;/div&gt;
+<pre>&lt;div id="main" class="map" data-center="37.765,-122.413" data-zoom="11"&gt;
   &lt;div class="marker"
     data-location="37.7647463,-122.41951"&gt;&lt;a href="http://stamen.com"&gt;Stamen&lt;/a&gt;&lt;/div&gt;
 &lt;/div&gt;</pre>
@@ -44,35 +38,14 @@
 		<h2>HTMAPL is:</h2>
 		<ol>
 			<li>An HTML vocabulary for describing both interactive and static geographic maps with layers and markers</li>
-			<li>A <a href="http://polymaps.org">Polymaps-inspired</a>&mdash;but <em>rendering engine-agnostic</em>&mdash;interface for generating geographic maps in JavaScript</li>
-			<li>A <a href="http://jquery.com">jQuery</a> plugin that ties together these two concepts, making it <strong>frighteningly easy to make web-native geographic maps</strong></li>
+            <li>A <a href="http://jquery.com">jQuery</a> plugin that associates the HTML vocabulary with <a href="http://github.com/stamen/modestmaps-js">ModestMaps</a>,
+                making it <strong>frighteningly easy to make web-native geographic maps</strong></li>
 		</ol>
 
 		<h2>Examples</h2>
 		<ul>
-			<li><a href="examples/polymaps.html">Polymaps</a></li>
-			<li><a href="examples/modest.html">ModestMaps</a></li>
-			<li><a href="examples/modestpoly.html">Dynamic Polymaps or ModestMaps</a> using <a href="http://labjs.com/">LABjs</a> and with feature detection courtesy of <a href="http://www.modernizr.com/">Modernizr</a></li>
+            <li>TODO</li>
 		</ul>
-
-		<h2>Rendering Engines</h2>
-		<p>HTMAPL currently supports two JavaScript map rendering engines: 
-		<a href="http://polymaps.org/">Polymaps</a> and
-		<a href="https://github.com/stamen/modestmaps-js">ModestMaps</a>.
-		The library provides "struts" for each rendering engine
-		(<a href="src/polymaps-htmapl.js">one</a> for Polymaps,
-		<a href="src/modestmaps-htmapl.js">another</a> for ModestMaps)
-		that expose a common interface to HTMAPL internally.</p>
-		
-		<p>I've left open the possibility of other
-		"pluggable" interfaces (via the globally accessible
-		<tt>jQuery.fn.htmapl.engine</tt> variable) and the
-		option to specify different rendering engines on a
-		per-execution chain basis. Conditional rendering
-		engine selection is also
-		<a href="examples/modestpoly.html">possible</a> with
-		<a href="http://labjs.com/">LABjs</a> and
-		<a href="http://www.modernizr.com/">Modernizr</a>.</p>
 
 		<script type="text/javascript" defer="defer">
 			$(function() {
