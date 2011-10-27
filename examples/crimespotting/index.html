@@ -21,12 +21,12 @@
             <div class="layer crimes"
                 data-type="geojson"
                 data-template="#oak-marker"
-                data-set-extent="true"
+                data-set_extent="true"
                 data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;format=json">
                 <script id="oak-marker" type="text/x-jquery-tmpl">
                     <a class="report ${getCrimeGroup(properties.crime_type)}"
-                        data-crime-type="${properties.crime_type}"
-                        data-crime-group="${getCrimeGroup(properties)}"
+                        data-crime_type="${properties.crime_type}"
+                        data-crime_group="${getCrimeGroup(properties)}"
                         href="http://oakland.crimespotting.org/${getHref(properties, id)}">
                         <span class="group">${abbreviate(properties.crime_type)}</span>
                         <span class="desc">
@@ -48,7 +48,7 @@
             and mouse events (captured using
             <a href="http://api.jquery.com/live/">.live()</a>
             so we don't have to wait for the data to load first) show and hide
-            markers with the same <tt>data-crime-type</tt> attribute.</p>
+            markers with the same <tt>data-crime_type</tt> attribute.</p>
 
             <pre>&lt;div class="map" id="oakland"
     data-provider="bing"
@@ -57,12 +57,12 @@
     &lt;div class="layer crimes"
         data-type="geojson"
         <span class="hilite">data-template="#oak-marker"</span>
-        <span class="hilite">data-set-extent="true"</span>
+        <span class="hilite">data-set_extent="true"</span>
         <span class="hilite">data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;amp;format=json"</span>&gt;
         &lt;script id="oak-marker" type="text/x-jquery-tmpl"&gt;
             &lt;a class="report ${getCrimeGroup(properties.crime_type)}"
-                data-crime-type="${properties.crime_type}"
-                data-crime-group="${getCrimeGroup(properties)}"
+                data-crime_type="${properties.crime_type}"
+                data-crime_group="${getCrimeGroup(properties)}"
                 href="http://oakland.crimespotting.org/${getHref(properties, id)}"&gt;
                 &lt;span class="group"&gt;${abbreviate(properties.crime_type)}&lt;/span&gt;
                 &lt;span class="desc"&gt;
@@ -124,21 +124,22 @@
 
                     var map = $(this),
                         crimes = map.find(".layer.crimes").first(),
-                        layer = crimes.data("htmapl.layer");
+                        layer = crimes.data("layer");
 
                     map.find("a.report")
                         .live("mouseover", function() {
                             var that = this,
-                                type = $(this).data("crime-type");
+                                type = $(this).data("crime_type");
                             $(layer.markers).each(function() {
                                 var o = $(this),
-                                    match = (this == that || o.data("crime-type") == type);
+                                    match = (this == that || o.data("crime_type") == type);
                                 o.toggleClass("faded", !match); // .css("z-index", match ? 999 : 0);
                             });
                         })
                         .live("mouseout", function() {
                             $(layer.markers).removeClass("faded");
                         });
+
                 });
             });
         </script>

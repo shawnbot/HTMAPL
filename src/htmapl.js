@@ -382,10 +382,10 @@
                                 if (url) {
                                     var layerOptions = {
                                         // the default data type is JSON-P
-                                        "dataType": $layer.data("url-type") || "jsonp"
+                                        "dataType": $layer.data("url_type") || "jsonp"
                                     };
 
-                                    var autoExtent = $layer.data("set-extent");
+                                    var autoExtent = $layer.data("set_extent");
                                     // console.log("auto-extent?", autoExtent);
 
                                     // TODO: allow overriding $.ajax options?
@@ -482,3 +482,4 @@
 
 
 })(window, jQuery);
+
