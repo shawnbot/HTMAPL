@@ -1,18 +1,10 @@
 (function(window, $) {
 
-    var mm = com.modestmaps;
-
-    /**
-     * Defer a function call and cancel any other deferrals.
-     */
-    function defer(ms, fn, context) {
-        return function() {
-            if (fn.timeout) clearTimeout(fn.timeout);
-            var args = arguments;
-            return fn.timeout = setTimeout(function() {
-                fn.apply(context, args);
-            }, ms);
-        };
+    try {
+        var mm = com.modestmaps;
+    } catch (e) {
+        throw "Couldn't find com.modestmaps; did you include modestmaps.js?";
+        return false;
     }
 
  	/**
@@ -139,12 +131,19 @@
     cloudmade.key = "BC9A493B41014CAABB98F0471D759707";
     cloudmade.domains = ["a", "b", "c"];
 
+    var acetate = function(layer) {
+        return new mm.TemplatedMapProvider("http://acetate.geoiq.com/tiles/acetate-" + layer + "/{Z}/{X}/{Y}.png");
+    };
+
     /**
      * Built-in providers
      */
     var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
     registerProvider("none",                NULL_PROVIDER);
     registerProvider("toner",               new mm.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
+    registerProvider("bing",                new mm.TemplatedMapProvider("http://ecn.t{S:0,1,2}.tiles.virtualearth.net/tiles/r{Q}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"));
+    registerProvider("acetate:roads",       acetate("roads"));
+    registerProvider("acetate:labels",      acetate("labels"));
     registerProvider("cloudmade:paledawn",  cloudmade(997));
     registerProvider("cloudmade:fresh",     cloudmade(998));
     registerProvider("cloudmade:midnight",  cloudmade(999));
@@ -153,7 +152,6 @@
      * Get a named provider
      */
     function getProvider(url) {
-        console.log("getProvider(", url, ")");
         if (url in PROVIDERS) {
             return PROVIDERS[url];
         } else {
@@ -173,6 +171,16 @@
                 console.warn("invalid marker location:", rawLocation, "; skipping marker:", marker);
             }
         });
+    }
+
+    function loadLayerMarkers($layer, url, options) {
+        if (!options) options = {};
+        $.extend(options, {
+            success: function(collection) {
+                $
+            }
+        });
+        return $.ajax(url, options);
     }
 
 	// keep a reference around to the plugin object for exporting useful functions
@@ -209,7 +217,7 @@
         "center":       {lat: 37.764, lon: -122.419},
         "zoom":         17,
         "interactive":  true,
-        "provider":     "toner",
+        "provider":     "bing",
         "layers":       ".layer",
         "markers":      ".marker"
     };
@@ -229,48 +237,120 @@
             } else if (typeof value !== "undefined") {
                 options[key] = value;
             } else {
-                console.info("invalid value for", key, ":", value);
+                // console.info("invalid value for", key, ":", value);
             }
         }
 
-        console.log("options:", options);
+        // console.log("+ map options:", options);
 
         var handlers = [];
         if (options.interactive) {
             handlers.push(new mm.MouseHandler());
         }
 
-        var map = new mm.Map(container, options.provider, null, handlers);
+        var map = new mm.Map(container, NULL_PROVIDER, null, handlers);
+        // console.log("+ map:", map);
+
+        if (options.provider) {
+            // console.log("  * base provider:", options.provider);
+            var baseLayer = map.layers[0];
+            baseLayer.setProvider(options.provider);
+            container.insertBefore(baseLayer.parent, container.firstChild);
+            // XXX: force the base map layer to the bottom
+            baseLayer.parent.style.zIndex = 0;
+        }
 
         if (options.layers) {
             var layers = $container.children(options.layers);
             if (layers.length) {
                 layers.each(function(i, layer) {
                     var $layer = $(layer),
-                        type = $layer.data("type");
+                        type = $layer.data("type"),
+                        provider = $layer.data("provider");
 
-                    var mapLayer, provider;
+                    // console.log("  + layer:", type, layer);
+
+                    var mapLayer;
                     switch (type.toLowerCase()) {
                         case "markers":
+                            // marker layers ignore the provider
                             mapLayer = new mm.MarkerLayer(map, NULL_PROVIDER, layer);
                             addLayerMarkers(mapLayer, $layer.children());
                             break;
 
                         case "geojson":
-                            var _provider = $layer.data("provider");
-                            // TODO: implement
-                            throw "GeoJSON support is not implemented yet!";
+                            var url = $layer.data("url") || provider,
+                                template = $layer.data("template"),
+                                tiled = url && url.match(/{(Z|X|Y)}/);
+
+                            var buildMarker;
+                            switch (typeof template) {
+                                case "function":
+                                    buildMarker = template;
+                                    break;
+                                case "string":
+                                    buildMarker = getTemplateMaker(template);
+                                    break;
+                            }
+
+                            // XXX: two very different things happen here
+                            // depending on whether the data is "tiled":
+                            if (tiled) {
+
+                                // if so, we use a GeoJSONProvider and a tiled
+                                // layer...
+                                var tileProvider = getProvider(url);
+                                mapProvider = new mm.GeoJSONProvider(tileProvider, buildMarker);
+                                mapLayer = new mm.Layer(map, mapProvider, layer);
+
+                            } else {
+
+                                // otherwise we create a MarkerLayer, load
+                                // data, and add markers on success.
+                                mapLayer = new mm.MarkerLayer(map, NULL_PROVIDER, layer);
+                                if (url) {
+                                    var layerOptions = {
+                                        // the default data type is JSON-P
+                                        "dataType": "jsonp"
+                                    };
+
+                                    var autoExtent = $layer.data("set-extent");
+                                    // console.log("auto-extent?", autoExtent);
+
+                                    // TODO: allow overriding $.ajax options?
+                                    layerOptions.success = function(collection) {
+                                        var features = collection.features,
+                                            len = features.length,
+                                            locations = [];
+                                        for (var i = 0; i < len; i++) {
+                                            var feature = features[i],
+                                                marker = mapLayer.buildMarker(feature);
+                                            mapLayer.addMarker(marker, feature);
+                                            locations.push(marker.location);
+                                        }
+                                        // forget the request
+                                        $layer.data("htmapl.request", null);
+                                        // trigger a load event
+                                        $layer.trigger("htmapl.load", collection);
+
+                                        if (locations.length && autoExtent) {
+                                            // console.log("auto-extent:", locations);
+                                            map.setExtent(locations);
+                                        }
+                                    };
+
+                                    var request = $.ajax(url, layerOptions);
+                                    $layer.data("htmapl.request", request);
+                                }
+
+                            }
                             break;
                             
                         case "image":
                         default:
-                            var _provider = $layer.data("provider");
-                            provider = getProvider(_provider);
+                            var mapProvider = getProvider(provider);
+                            mapLayer = new mm.Layer(map, mapProvider, layer);
                             break;
-                    }
-
-                    if (provider && !mapLayer) {
-                        mapLayer = new mm.Layer(map, provider, layer);
                     }
 
                     if (mapLayer) {

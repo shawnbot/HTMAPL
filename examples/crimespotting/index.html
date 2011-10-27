@@ -1,7 +1,7 @@
 <html>
     <head>
         <title>HTMAPL: Crimespotting</title>
-        <script type="text/javascript" src="../../lib/jquery-1.5.min.js"></script>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
         <script type="text/javascript" src="../../src/htmapl.js"></script>
@@ -13,29 +13,27 @@
 
         <h1>HTMAPL: Crimespotting</h1>
 
-        <div class="map interact" id="oakland"
-            data-base="http://ecn.t{subdomains:0,1,2}.tiles.virtualearth.net/tiles/r{quadkey}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"
+        <div class="map" id="oakland"
+            data-base="bing"
             data-center="37.804,-122.252"
             data-zoom="12">
             <div class="layer crimes"
-                data-type="geoJson-p"
+                data-type="geojson"
+                data-set-extent="true"
                 data-url="http://oakland.crimespotting.org/crime-data?count=100&amp;dstart=2011-05-01&amp;dend=2011-05-31&amp;format=json">
             </div>
             <h2>Oakland</h2>
         </div>
 
-        <div class="map interact" id="sanfrancisco"
-            data-base="http://acetate.geoiq.com/tiles/acetate-hillshading/{Z}/{X}/{Y}.png"
+        <div class="map" id="sanfrancisco"
+            data-base="bing"
             data-center="37.762,-122.435"
             data-zoom="12">
             <div class="layer crimes"
-                data-type="geoJson-p"
+                data-type="geojson"
+                data-set-extent="true"
                 data-url="http://sanfrancisco.crimespotting.org/crime-data?count=100&amp;dstart=2011-05-01&amp;dend=2011-05-31&amp;format=json">
             </div>
-            <!--
-            <div class="layer labels" data-type="image"
-                data-url="http://acetate.geoiq.com/tiles/acetate-labels/{Z}/{X}/{Y}.png"></div>
-            -->
             <h2>San Francisco</h2>
         </div>
 
@@ -89,16 +87,6 @@
                     .replace("{type}", props.crime_type.replace(/ /g, "_"));
             }
 
-            function defer(fn, ms, context) {
-                return function() {
-                    var args = arguments, that = context || this;
-                    if (fn.timeout) clearTimeout(fn.timeout);
-                    return fn.timeout = setTimeout(function() {
-                        fn.apply(that, args);
-                    }, ms);
-                };
-            }
-
             // do it.
             $(function() {
                 try {
@@ -106,7 +94,7 @@
                     var map = $(this),
                         city = map.attr("id"),
                         crimes = map.find(".layer.crimes").first(),
-                        layer = crimes.data("layer"),
+                        layer = crimes.data("htmapl.layer"),
                         markers = [];
 
                     function getHref(props, id) {
@@ -132,7 +120,7 @@
                         $(markers).removeClass("faded");
                     }
 
-                    layer.template(function(feature) {
+                    layer.buildMarker = function(feature) {
                         var props = feature.properties,
                             type = props.crime_type,
                             group = getCrimeGroup(type);
@@ -155,7 +143,7 @@
                         marker.mouseout(out);
                         markers.push(marker[0]);
                         return marker[0]; // return the actual DOM node
-                    });
+                    };
 
                 });
                 } catch (e) {
