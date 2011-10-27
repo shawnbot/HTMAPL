@@ -382,7 +382,7 @@
                                 if (url) {
                                     var layerOptions = {
                                         // the default data type is JSON-P
-                                        "dataType": "jsonp"
+                                        "dataType": $layer.data("url-type") || "jsonp"
                                     };
 
                                     var autoExtent = $layer.data("set-extent");
