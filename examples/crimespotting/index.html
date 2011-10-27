@@ -2,6 +2,7 @@
     <head>
         <title>HTMAPL: Crimespotting</title>
         <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+        <script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jquery.templates/beta1/jquery.tmpl.min.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
         <script type="text/javascript" src="../../src/htmapl.js"></script>
@@ -11,42 +12,68 @@
     </head>
     <body>
 
-        <h1>HTMAPL: Crimespotting</h1>
+        <h1>HTMAPL: Oakland Crimespotting</h1>
 
         <div class="map" id="oakland"
-            data-base="bing"
+            data-provider="cloudmade:paledawn"
             data-center="37.804,-122.252"
             data-zoom="12">
             <div class="layer crimes"
                 data-type="geojson"
+                data-template="#oak-marker"
                 data-set-extent="true"
-                data-url="http://oakland.crimespotting.org/crime-data?count=100&amp;dstart=2011-05-01&amp;dend=2011-05-31&amp;format=json">
+                data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;format=json">
+                <script id="oak-marker" type="text/x-jquery-tmpl">
+                    <a class="report ${getCrimeGroup(properties.crime_type)}"
+                        data-crime-type="${properties.crime_type}"
+                        data-crime-group="${getCrimeGroup(properties)}"
+                        href="http://oakland.crimespotting.org/${getHref(properties, id)}">
+                        <span class="group">${abbreviate(properties.crime_type)}</span>
+                        <span class="desc">
+                            ${properties.description}
+                            <span class="date">@ ${properties.date_time.substr(0,16)}</span>
+                        </span>
+                    </a>
+                </script>
             </div>
-            <h2>Oakland</h2>
-        </div>
-
-        <div class="map" id="sanfrancisco"
-            data-base="bing"
-            data-center="37.762,-122.435"
-            data-zoom="12">
-            <div class="layer crimes"
-                data-type="geojson"
-                data-set-extent="true"
-                data-url="http://sanfrancisco.crimespotting.org/crime-data?count=100&amp;dstart=2011-05-01&amp;dend=2011-05-31&amp;format=json">
-            </div>
-            <h2>San Francisco</h2>
         </div>
 
         <div id="about">
-            <p>In this example we have maps of data from
-            <a href="http://oakland.crimespotting.org">Oakland</a> and
-            <a href="http://sanfrancisco.crimespotting.org">San Francisco</a>
-            Crimespotting. Each loads <a href="http://geojson.org/">GeoJSON</a>
-            features from the respective API
-            (<a href="http://oakland.crimespotting.org/api/">OAK</a>,
-            <a href="http://sanfrancisco.crimespotting.org/api/">SFO</a>) and
-            creates plain 'ol HTML markers with some styles to show and hide
-            information on hover.</p>
+            <p>This example shows the 50 most recent crime reports on
+            <a href="http://oakland.crimespotting.org">Oakland Crimespotting</a>,
+            using its
+            <a href="http://oakland.crimespotting.org/api/">GeoJSON API</a>.
+            Markers are generated from
+            <a href="http://api.jquery.com/category/plugins/templates/">jQuery templates</a>,
+            and mouse events (captured using
+            <a href="http://api.jquery.com/live/">.live()</a>
+            so we don't have to wait for the data to load first) show and hide
+            markers with the same <tt>data-crime-type</tt> attribute.</p>
+
+            <pre>&lt;div class="map" id="oakland"
+    data-provider="bing"
+    data-center="37.804,-122.252"
+    data-zoom="12"&gt;
+    &lt;div class="layer crimes"
+        data-type="geojson"
+        <span class="hilite">data-template="#oak-marker"</span>
+        <span class="hilite">data-set-extent="true"</span>
+        <span class="hilite">data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;amp;format=json"</span>&gt;
+        &lt;script id="oak-marker" type="text/x-jquery-tmpl"&gt;
+            &lt;a class="report ${getCrimeGroup(properties.crime_type)}"
+                data-crime-type="${properties.crime_type}"
+                data-crime-group="${getCrimeGroup(properties)}"
+                href="http://oakland.crimespotting.org/${getHref(properties, id)}"&gt;
+                &lt;span class="group"&gt;${abbreviate(properties.crime_type)}&lt;/span&gt;
+                &lt;span class="desc"&gt;
+                    ${properties.description}
+                    &lt;span class="date"&gt;@ ${properties.date_time.substr(0,16)}&lt;/span&gt;
+                &lt;/span&gt;
+            &lt;/a&gt;
+        &lt;/script&gt;
+    &lt;/div&gt;
+    &lt;h2&gt;Oakland&lt;/h2&gt;
+&lt;/div&gt;</pre>
         </div>
 
         <script type="text/javascript" defer="defer">
@@ -82,73 +109,37 @@
                 }
             } 
 
-            function getIcon(props) {
-                return "icons/{type}.png"
-                    .replace("{type}", props.crime_type.replace(/ /g, "_"));
+            function getHref(props, id) {
+                return [
+                    id ? "crime" : "crimes",
+                    props.date_time.substr(0, 10),
+                    props.crime_type.replace(/ /g, "_"),
+                    id || ""
+                ].join("/");
             }
 
             // do it.
             $(function() {
-                try {
                 $("div.map").htmapl().each(function() {
+
                     var map = $(this),
-                        city = map.attr("id"),
                         crimes = map.find(".layer.crimes").first(),
-                        layer = crimes.data("htmapl.layer"),
-                        markers = [];
+                        layer = crimes.data("htmapl.layer");
 
-                    function getHref(props, id) {
-                        return "http://{city}.crimespotting.org/{path}/{date}/{type}/{id}"
-                            .replace("{path}", id ? "crime" : "crimes")
-                            .replace("{city}", city)
-                            .replace("{date}", props.date_time.substr(0, 10))
-                            .replace("{type}", props.crime_type.replace(/ /g, "_"))
-                            .replace("{id}", id || "");
-                    }
-
-                    function over() {
-                        var that = this,
-                            type = $(this).data("crime_type");
-                        $(markers).each(function() {
-                            var o = $(this),
-                                match = (this == that || o.data("crime_type") == type);
-                            o.toggleClass("faded", !match); // .css("z-index", match ? 999 : 0);
+                    map.find("a.report")
+                        .live("mouseover", function() {
+                            var that = this,
+                                type = $(this).data("crime-type");
+                            $(layer.markers).each(function() {
+                                var o = $(this),
+                                    match = (this == that || o.data("crime-type") == type);
+                                o.toggleClass("faded", !match); // .css("z-index", match ? 999 : 0);
+                            });
+                        })
+                        .live("mouseout", function() {
+                            $(layer.markers).removeClass("faded");
                         });
-                    }
-
-                    function out() {
-                        $(markers).removeClass("faded");
-                    }
-
-                    layer.buildMarker = function(feature) {
-                        var props = feature.properties,
-                            type = props.crime_type,
-                            group = getCrimeGroup(type);
-                        var marker = $("<a/>")
-                            .addClass("report")
-                            .addClass(group)
-                            .data("crime_type", type)
-                            .data("crime_group", group)
-                            .attr("href", getHref(props, feature.id))
-                            .append($("<span/>")
-                                .addClass("group")
-                                .text(abbreviate(type)))
-                            .append($("<span/>")
-                                .addClass("desc")
-                                .text(props.description)
-                                .append($("<span/>")
-                                    .addClass("date")
-                                    .text(" @ " + props.date_time)));
-                        marker.mouseover(over);
-                        marker.mouseout(out);
-                        markers.push(marker[0]);
-                        return marker[0]; // return the actual DOM node
-                    };
-
                 });
-                } catch (e) {
-                    console.error(e);
-                }
             });
         </script>
 

@@ -7,18 +7,6 @@
         return false;
     }
 
- 	/**
-	 * Parses mustached "variables" in a string and replaces them with property
-	 * values from another object. E.g.:
-	 *
-	 * templatize("Type: {type}", {type: "fish"}) -> "Type: fish"
-	 */
- 	function templatize(template, obj) {
-		return template.replace(/{([^}]+)}/g, function(s, prop) {
-			return obj[prop] || "";
-		});
-	}
-
 	/**
 	 * Parsing Functions
 	 *
@@ -118,42 +106,35 @@
 	}
 
     var PROVIDERS = {};
+    /**
+     * Register a named map tile provider. Basic usage:
+     *
+     * $.fn.htmapl.registerProvider("name", new com.modestmaps.MapProvider(...));
+     *
+     * You can also register tile provider "generator" prefixes with a colon
+     * between the prefix and the generator argument(s). E.g.:
+     *
+     * $.fn.htmapl.registerProvider("prefix:layer", function(layer) {
+     *     var url = "path/to/" + layer + "/{Z}/{X}/{Y}.png";
+     *     return new com.modestmaps.TemplatedMapProvider(url);
+     * });
+     */
     function registerProvider(name, provider) {
         PROVIDERS[name] = provider;
     }
 
     /**
-     * Cloudmade style map provider generator.
-     */
-    var cloudmade = function(styleId) {
-        return new mm.TemplatedMapProvider(["http://{S}.tile.cloudmade.com", cloudmade.key, styleId, "{Z}/{X}/{Y}.png"].join("/"), cloudmade.domains);
-    }
-    cloudmade.key = "BC9A493B41014CAABB98F0471D759707";
-    cloudmade.domains = ["a", "b", "c"];
-
-    var acetate = function(layer) {
-        return new mm.TemplatedMapProvider("http://acetate.geoiq.com/tiles/acetate-" + layer + "/{Z}/{X}/{Y}.png");
-    };
-
-    /**
-     * Built-in providers
-     */
-    var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
-    registerProvider("none",                NULL_PROVIDER);
-    registerProvider("toner",               new mm.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
-    registerProvider("bing",                new mm.TemplatedMapProvider("http://ecn.t{S:0,1,2}.tiles.virtualearth.net/tiles/r{Q}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"));
-    registerProvider("acetate:roads",       acetate("roads"));
-    registerProvider("acetate:labels",      acetate("labels"));
-    registerProvider("cloudmade:paledawn",  cloudmade(997));
-    registerProvider("cloudmade:fresh",     cloudmade(998));
-    registerProvider("cloudmade:midnight",  cloudmade(999));
-
-    /**
      * Get a named provider
      */
-    function getProvider(url) {
-        if (url in PROVIDERS) {
-            return PROVIDERS[url];
+    function getProvider(str) {
+        if (str in PROVIDERS) {
+            return PROVIDERS[str];
+        } else if (str.indexOf(":") > -1) {
+            var parts = str.split(":"),
+                prefix = parts.shift();
+            if (prefix in PROVIDERS) {
+                return PROVIDERS[prefix].apply(null, parts);
+            }
         } else {
             return url
                 ? new mm.TemplatedMapProvider(url)
@@ -161,26 +142,113 @@
         }
     }
 
+    /**
+     * Built-in providers
+     */
+    var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
+    registerProvider("none",        NULL_PROVIDER);
+    // TODO: turn bing into a prefix provider (road, aerial, etc.)
+    registerProvider("bing",        new mm.TemplatedMapProvider("http://ecn.t{S:0,1,2}.tiles.virtualearth.net/tiles/r{Q}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"));
+    registerProvider("toner",       new mm.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
+
+    /**
+     * Cloudmade style map provider generator.
+     */
+    PROVIDERS["cloudmade"] = (function() {
+        var aliases = {
+            "fresh":    997,
+            "paledawn": 998,
+            "midnight": 999
+        };
+
+        var CM = function(styleId) {
+            if (styleId in aliases) {
+                styleId = aliases[styleId];
+            }
+            return new mm.TemplatedMapProvider([
+                "http://{S}tile.cloudmade.com",
+                CM.key,
+                styleId,
+                "256/{Z}/{X}/{Y}.png"
+            ].join("/"), CM.domains);
+        };
+
+        CM.key = "1a1b06b230af4efdbb989ea99e9841af";
+        CM.domains = ["a.", "b.", "c.", ""];
+        CM.registerAlias = function(alias, styleId) {
+            aliases[alias] = styleId;
+        };
+
+        return CM;
+    })();
+
+    /**
+     * Acetate layer generator
+     */
+    PROVIDERS["acetate"] = function(layer) {
+        return new mm.TemplatedMapProvider("http://acetate.geoiq.com/tiles/acetate-" + layer + "/{Z}/{X}/{Y}.png");
+    };
+
+    /**
+     * Adds each marker element in a jQuery selection to the provided
+     * ModestMaps Layer. Each marker element should have a "location" data
+     * that getLatLon() can parse into a Location object.
+     *
+     * Returns the number of markers added with valid locations.
+     */
     function addLayerMarkers(layer, $markers) {
+        var added = 0;
         $markers.each(function(i, marker) {
             var rawLocation = $(marker).data("location"),
                 parsedLocation = getLatLon(rawLocation);
             if (parsedLocation) {
                 layer.addMarker(marker, parsedLocation);
+                added++;
             } else {
                 console.warn("invalid marker location:", rawLocation, "; skipping marker:", marker);
             }
         });
+        return added;
     }
 
-    function loadLayerMarkers($layer, url, options) {
-        if (!options) options = {};
-        $.extend(options, {
-            success: function(collection) {
-                $
+    /**
+     * Get a marker building function. If the first character of the provided
+     * name is "#", the string is assumed to refer to a jQuery template with
+     * the name as its id selector.
+     *
+     * Otherwise, we attempt to find a function in the window's scope with that
+     * name. We're using eval() here now, which is obviously bad, but this
+     * could be modified to safely parse dotted variable references, such as
+     * "SomeClass.prototype.buildMarker".
+     *
+     * Either way, the return value should be a function, or null if nothing
+     * was found.
+     */
+    function getBuildMarker(name) {
+        if (name.charAt(0) === "#") {
+            var target = $(name);
+            if (target.length) {
+                var template = target.template();
+                return function(feature) {
+                    return $.tmpl(template, feature).get(0);
+                };
+            } else {
+                return null;
             }
-        });
-        return $.ajax(url, options);
+        } else {
+            try {
+                var ref;
+                with (window) {
+                    ref = eval(name);
+                }
+                if (typeof ref === "function") {
+                    return ref;
+                }
+            } catch (e) {
+                console.warn("unable to eval('" + name + "'):", e);
+            }
+            return null;
+        }
     }
 
 	// keep a reference around to the plugin object for exporting useful functions
@@ -201,7 +269,6 @@
 	exports.getInt = getInt;
 	exports.getLatLon = getLatLon;
 	exports.getXY = getXY;
-	exports.templatize = templatize;
 
     var DATA_KEYS = {
         "center":       getLatLon,
@@ -217,7 +284,7 @@
         "center":       {lat: 37.764, lon: -122.419},
         "zoom":         17,
         "interactive":  true,
-        "provider":     "bing",
+        "provider":     "toner",
         "layers":       ".layer",
         "markers":      ".marker"
     };
@@ -283,15 +350,19 @@
                                 template = $layer.data("template"),
                                 tiled = url && url.match(/{(Z|X|Y)}/);
 
+                            // console.log("template:", template);
+
                             var buildMarker;
                             switch (typeof template) {
                                 case "function":
                                     buildMarker = template;
                                     break;
                                 case "string":
-                                    buildMarker = getTemplateMaker(template);
+                                    buildMarker = getBuildMarker(template);
                                     break;
                             }
+
+                            // console.log("buildMarker:", buildMarker);
 
                             // XXX: two very different things happen here
                             // depending on whether the data is "tiled":
@@ -324,7 +395,7 @@
                                             locations = [];
                                         for (var i = 0; i < len; i++) {
                                             var feature = features[i],
-                                                marker = mapLayer.buildMarker(feature);
+                                                marker = buildMarker.call(mapLayer, feature);
                                             mapLayer.addMarker(marker, feature);
                                             locations.push(marker.location);
                                         }

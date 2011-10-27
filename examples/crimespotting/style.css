@@ -39,8 +39,8 @@ img.show {
 }
 
 .map {
-    height: 300px;
-    border-bottom: 1px solid #999;
+    height: 500px;
+    border-bottom: 1px solid black;
 }
 
 h2 {
@@ -119,4 +119,8 @@ h2 {
 }
 .map .labels {
     pointer-events: none;
+}
+
+.hilite {
+    background-color: yellow;
 }
