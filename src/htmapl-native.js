@@ -252,7 +252,6 @@ var HTMAPL = {};
                 this.map.setExtent(options.extent);
             } else if (options.center) {
                 this.map.setCenter(options.center);
-                this.map.dispatchCallback("zoomed");
             }
             if (!isNaN(options.zoom)) {
                 this.map.setZoom(options.zoom);
