@@ -66,6 +66,10 @@ var HTMAPL = {};
         }
     }
 
+    HTMAPL.load = function(url, options, success) {
+        throw "Not implemented yet; include jQuery for remote file loading via $.ajax()";
+    };
+
     HTMAPL.Wrapper = function(element, options) {
         this.element = element;
         this.initialize(options);
@@ -191,7 +195,7 @@ var HTMAPL = {};
                                 "dataType": layerOptions.dataType
                             };
 
-                            requestOptions.success = function(collection) {
+                            var success = function(collection) {
                                 var features = collection.features,
                                     len = features.length,
                                     locations = [];
@@ -201,15 +205,12 @@ var HTMAPL = {};
                                     mapLayer.addMarker(marker, feature);
                                     locations.push(marker.location);
                                 }
-                                // TODO: trigger a load event?
-
                                 if (locations.length && layerOptions.setExtent === true) {
                                     map.setExtent(locations);
                                 }
                             };
 
-                            // TODO: use something else to load?
-                            $.ajax(url, requestOptions);
+                            HTMAPL.load(url, requestOptions, success);
                         }
                         break;
                         
@@ -591,6 +592,7 @@ var HTMAPL = {};
         } else {
             try {
                 var ref;
+                // TODO: replace eval() with a safe recursive lookup
                 with (window) {
                     ref = eval(name);
                 }
@@ -600,12 +602,18 @@ var HTMAPL = {};
             } catch (e) {
                 console.warn("unable to eval('" + name + "'):", e);
             }
-            return null;
         }
+        return null;
     }
 
     var exports;
     if (typeof $ !== "undefined") {
+
+        HTMAPL.load = function(url, options, success) {
+            options["success"] = success;
+            return $.ajax(url, options);
+        };
+
         // keep a reference around to the plugin object for exporting useful functions
         exports = $.fn.htmapl = function(options, argn) {
             var args = Array.prototype.slice.call(arguments, 1);
