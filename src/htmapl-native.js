@@ -489,16 +489,16 @@ var HTMAPL = {};
 		return ~~(0.5 + n) + "px";
 	}
 
-    var PROVIDERS = {};
+    var PROVIDERS = HTMAPL.providers = {};
     /**
      * Register a named map tile provider. Basic usage:
      *
-     * $.fn.htmapl.registerProvider("name", new com.modestmaps.MapProvider(...));
+     * HTMAPL.registerProvider("name", new com.modestmaps.MapProvider(...));
      *
      * You can also register tile provider "generator" prefixes with a colon
      * between the prefix and the generator argument(s). E.g.:
      *
-     * $.fn.htmapl.registerProvider("prefix:layer", function(layer) {
+     * HTMAPL.registerProvider("prefix:layer", function(layer) {
      *     var url = "path/to/" + layer + "/{Z}/{X}/{Y}.png";
      *     return new com.modestmaps.TemplatedMapProvider(url);
      * });
@@ -710,7 +710,6 @@ var HTMAPL = {};
     }
 
     // exports
-    exports.providers = PROVIDERS;
     exports.registerProvider = registerProvider;
     exports.getProvider = getProvider;
     exports.getArray = getArray;
