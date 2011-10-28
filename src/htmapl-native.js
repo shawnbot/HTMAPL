@@ -77,10 +77,15 @@ var HTMAPL = {};
                 len = children.length;
             for (var i = 0; i < len; i++) {
                 var layer = children[i];
-                    type = getData(layer, "type") || "image",
+                    type = getData(layer, "type"),
                     provider = getData(layer, "provider");
 
-                // console.log("  + layer:", type, layer);
+                if (!type) {
+                    console.warn("no type defined for layer:", layer);
+                    continue;
+                }
+
+                // console.log("  + layer:", [type, provider], layer);
 
                 var map = this.map,
                     mapLayer;
@@ -95,6 +100,11 @@ var HTMAPL = {};
                         var url = getData(layer, "url") || provider,
                             template = getData(layer, "template"),
                             tiled = url && url.match(/{(Z|X|Y)}/);
+
+                        if (!url) {
+                            console.warn("no URL/provider found for GeoJSON layer:", layer);
+                            continue;
+                        }
 
                         // console.log("template:", template);
 
@@ -117,48 +127,55 @@ var HTMAPL = {};
                             // if so, we use a GeoJSONProvider and a tiled
                             // layer...
                             var tileProvider = getProvider(url);
-                            mapProvider = new mm.GeoJSONProvider(tileProvider, buildMarker);
-                            mapLayer = new mm.Layer(map, mapProvider, layer);
+                            if (tileProvider) {
+                                mapProvider = new mm.GeoJSONProvider(tileProvider, buildMarker);
+                                mapLayer = new mm.Layer(map, mapProvider, layer);
+                            } else {
+                                console.warn("no GeoJSON provider found for:", [url], "on layer:", layer);
+                                continue;
+                            }
 
                         } else {
 
                             // otherwise we create a MarkerLayer, load
                             // data, and add markers on success.
                             mapLayer = new mm.MarkerLayer(map, NULL_PROVIDER, layer);
-                            if (url) {
-                                var layerOptions = {
-                                    // the default data type is JSON-P
-                                    "dataType": getData(layer, "url_type") || "jsonp"
-                                };
+                            var layerOptions = {
+                                // the default data type is JSON-P
+                                "dataType": getData(layer, "url_type") || "jsonp"
+                            };
 
-                                var autoExtent = getData(layer, "set_extent") === "true";
-                                // console.log("auto-extent?", autoExtent, layer);
+                            var autoExtent = getBoolean(getData(layer, "set_extent"));
+                            // console.log("auto-extent?", autoExtent, layer);
 
-                                layerOptions.success = function(collection) {
-                                    var features = collection.features,
-                                        len = features.length,
-                                        locations = [];
-                                    for (var i = 0; i < len; i++) {
-                                        var feature = features[i],
-                                            marker = buildMarker.call(mapLayer, feature);
-                                        mapLayer.addMarker(marker, feature);
-                                        locations.push(marker.location);
-                                    }
-                                    // TODO: trigger a load event
+                            layerOptions.success = function(collection) {
+                                var features = collection.features,
+                                    len = features.length,
+                                    locations = [];
+                                for (var i = 0; i < len; i++) {
+                                    var feature = features[i],
+                                        marker = buildMarker.call(mapLayer, feature);
+                                    mapLayer.addMarker(marker, feature);
+                                    locations.push(marker.location);
+                                }
+                                // TODO: trigger a load event
 
-                                    if (locations.length && autoExtent) {
-                                        // console.log("auto-extent:", locations);
-                                        map.setExtent(locations);
-                                    }
-                                };
+                                if (locations.length && autoExtent) {
+                                    // console.log("auto-extent:", locations);
+                                    map.setExtent(locations);
+                                }
+                            };
 
-                                // TODO: use something else to load?
-                                $.ajax(url, layerOptions);
-                            }
+                            // TODO: use something else to load?
+                            $.ajax(url, layerOptions);
                         }
                         break;
                         
                     case "image":
+                        if (!provider) {
+                            console.warn("no provider found for image layer:", layer);
+                            break;
+                        }
                         var mapProvider = getProvider(provider);
                         mapLayer = new mm.Layer(map, mapProvider, layer);
                         break;
@@ -273,6 +290,9 @@ var HTMAPL = {};
     }
 
     function getData(element, key) {
+        if (typeof $ !== "undefined") {
+            return $(element).data(key);
+        }
         if (element.hasOwnProperty("dataset")) {
             // console.log("looking for data:", [key], "in", element.dataset);
             return element.dataset[key] || element.getAttribute("data-" + key);
@@ -368,7 +388,9 @@ var HTMAPL = {};
 	 * Parse a string as a boolean "true" or "false", otherwise null.
 	 */
 	function getBoolean(str) {
-		return (str === "true") ? true : (str === "false") ? false : null;
+		return (typeof str === "boolean")
+            ? str
+            : (str === "true") ? true : (str === "false") ? false : null;
 	}
 
 	/**
