@@ -5,7 +5,7 @@
         <script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jquery.templates/beta1/jquery.tmpl.min.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.js"></script>
         <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
-        <script type="text/javascript" src="../../src/htmapl.js"></script>
+        <script type="text/javascript" src="../../src/htmapl-native.js"></script>
         <style type="text/css">
             @import url(style.css);
         </style>
@@ -21,7 +21,7 @@
             <div class="layer crimes"
                 data-type="geojson"
                 data-template="#oak-marker"
-                data-set_extent="true"
+                data-setExtent="true"
                 data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;format=json">
                 <script id="oak-marker" type="text/x-jquery-tmpl">
                     <a class="report ${getCrimeGroup(properties.crime_type)}"
@@ -57,7 +57,7 @@
     &lt;div class="layer crimes"
         data-type="geojson"
         <span class="hilite">data-template="#oak-marker"</span>
-        <span class="hilite">data-set_extent="true"</span>
+        <span class="hilite">data-setExtent="true"</span>
         <span class="hilite">data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;amp;format=json"</span>&gt;
         &lt;script id="oak-marker" type="text/x-jquery-tmpl"&gt;
             &lt;a class="report ${getCrimeGroup(properties.crime_type)}"

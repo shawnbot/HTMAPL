@@ -9,26 +9,73 @@ var HTMAPL = {};
         return false;
     }
 
-    HTMAPL.Map = function(element, options) {
+    var DEFAULTS = HTMAPL.defaults = {
+        "map": {
+            "center":       {lat: 37.764, lon: -122.419},
+            "zoom":         17,
+            "extent":       null,
+            "provider":     "toner",
+            "interactive":  "true",
+            "layers":       ".layer",
+            "markers":      ".marker"
+        },
+        "layer": {
+            "type":         null,
+            "url":          null,
+            "dataType":     "json",
+            "template":     null,
+            "setExtent":    "false"
+        }
+    };
+
+    var ATTRIBUTES = HTMAPL.dataAttributes = {
+        // map option parsers
+        "map": {
+            "center":       getLatLon,
+            "zoom":         getInt,
+            "extent":       getExtent,
+            "provider":     getProvider,
+            "interactive":  getBoolean,
+            "layers":       String,
+            "markers":      String
+        },
+        // layer option parsers
+        "layer": {
+            "type":         String,
+            "url":          String,
+            "dataType":     String,
+            "template":     String,
+            "setExtent":    getBoolean
+        }
+    };
+
+    function parseOptions(options, element, parsers) {
+        // console.log("parsing:", element, "into:", options, "with:", parsers);
+        for (var key in parsers) {
+            var value = (element ? getData(element, key) : null) || options[key];
+            // console.log(" +", key, "=", value);
+            // if it's a string, parse it
+            if (typeof value === "string") {
+                options[key] = parsers[key].call(element, value);
+            // if it's not undefined, assign it
+            } else if (typeof value !== "undefined") {
+                options[key] = value;
+            } else {
+                // console.info("invalid value for", key, ":", value);
+            }
+        }
+    }
+
+    HTMAPL.Wrapper = function(element, options) {
         this.element = element;
         this.initialize(options);
     };
 
-    HTMAPL.Map.defaults = {
-        "center":       {lat: 37.764, lon: -122.419},
-        "zoom":         17,
-        "interactive":  true,
-        "provider":     "toner",
-        "layers":       ".layer",
-        "markers":      ".marker"
-    };
-
-    HTMAPL.Map.prototype = {
+    HTMAPL.Wrapper.prototype = {
         initialize: function(overrides) {
             var options = {};
-            extend(options, HTMAPL.Map.defaults, overrides);
-
-            this.updateOptions(options, this.element);
+            extend(options, DEFAULTS.map, overrides);
+            parseOptions(options, this.element, ATTRIBUTES.map);
 
             var handlers = [];
             if (options.interactive) {
@@ -39,15 +86,6 @@ var HTMAPL = {};
             this.element.__htmapl__ = {map: map};
             // console.log("+ map:", map);
 
-            if (options.provider) {
-                // console.log("  * base provider:", options.provider);
-                var baseLayer = map.layers[0];
-                baseLayer.setProvider(options.provider);
-                this.element.insertBefore(baseLayer.parent, this.element.firstChild);
-                // XXX: force the base map layer to the bottom
-                baseLayer.parent.style.zIndex = 0;
-            }
-
             if (options.layers) {
                 this.initLayers(options.layers);
             }
@@ -56,7 +94,7 @@ var HTMAPL = {};
                 this.initMarkers(options.markers);
             }
 
-            this.applyOptions(options);
+            this._applyParsedOptions(options);
         },
 
         initMarkers: function(filter) {
@@ -66,7 +104,9 @@ var HTMAPL = {};
                 var div = document.createElement("div"),
                     markerLayer = new mm.MarkerLayer(this.map, NULL_PROVIDER, div);
                 addLayerMarkers(markerLayer, markers);
+
                 this.element.__htmapl__.markers = markerLayer;
+                this.markers = markerLayer;
                 return markerLayer;
             }
             return null;
@@ -76,9 +116,15 @@ var HTMAPL = {};
             var children = getChildren(this.element, filter),
                 len = children.length;
             for (var i = 0; i < len; i++) {
-                var layer = children[i];
-                    type = getData(layer, "type"),
-                    provider = getData(layer, "provider");
+                var layer = children[i],
+                    layerOptions = {};
+                extend(layerOptions, DEFAULTS.layer);
+                parseOptions(layerOptions, layer, ATTRIBUTES.layer);
+
+                // console.log("layer options:", layerOptions);
+
+                var type = layerOptions.type,
+                    provider = layerOptions.provider;
 
                 if (!type) {
                     console.warn("no type defined for layer:", layer);
@@ -97,8 +143,8 @@ var HTMAPL = {};
                         break;
 
                     case "geojson":
-                        var url = getData(layer, "url") || provider,
-                            template = getData(layer, "template"),
+                        var url = layerOptions.url || layerOptions.provider,
+                            template = layerOptions.template,
                             tiled = url && url.match(/{(Z|X|Y)}/);
 
                         if (!url) {
@@ -140,15 +186,12 @@ var HTMAPL = {};
                             // otherwise we create a MarkerLayer, load
                             // data, and add markers on success.
                             mapLayer = new mm.MarkerLayer(map, NULL_PROVIDER, layer);
-                            var layerOptions = {
-                                // the default data type is JSON-P
-                                "dataType": getData(layer, "url_type") || "jsonp"
+
+                            var requestOptions = {
+                                "dataType": layerOptions.dataType
                             };
 
-                            var autoExtent = getBoolean(getData(layer, "set_extent"));
-                            // console.log("auto-extent?", autoExtent, layer);
-
-                            layerOptions.success = function(collection) {
+                            requestOptions.success = function(collection) {
                                 var features = collection.features,
                                     len = features.length,
                                     locations = [];
@@ -158,16 +201,15 @@ var HTMAPL = {};
                                     mapLayer.addMarker(marker, feature);
                                     locations.push(marker.location);
                                 }
-                                // TODO: trigger a load event
+                                // TODO: trigger a load event?
 
-                                if (locations.length && autoExtent) {
-                                    // console.log("auto-extent:", locations);
+                                if (locations.length && layerOptions.setExtent === true) {
                                     map.setExtent(locations);
                                 }
                             };
 
                             // TODO: use something else to load?
-                            $.ajax(url, layerOptions);
+                            $.ajax(url, requestOptions);
                         }
                         break;
                         
@@ -190,59 +232,69 @@ var HTMAPL = {};
             }
         },
 
-        updateOptions: function(options, element) {
-            var DATA_KEYS = {
-                "center":       getLatLon,
-                "zoom":         getInt,
-                "extent":       getExtent,
-                "provider":     getProvider,
-                "zoomRange":    getArray,
-                "interactive":  getBoolean,
-                "markers":      String
-            };
-            for (var key in DATA_KEYS) {
-                var value = getData(element, key) || options[key];
-                // if it's a string, parse it
-                if (typeof value === "string") {
-                    options[key] = DATA_KEYS[key].call(element, value);
-                // if it's not undefined, assign it
-                } else if (typeof value !== "undefined") {
-                    options[key] = value;
-                } else {
-                    // console.info("invalid value for", key, ":", value);
-                }
-            }
+        applyOptions: function(options) {
+            parseOptions(options, null, ATTRIBUTES.map);
+            this._applyParsedOptions(options);
         },
 
-        applyOptions: function(options) {
+        _applyParsedOptions: function(options) {
+            if (options.provider) {
+                // console.log("  * base provider:", options.provider);
+                var baseLayer = this.map.layers[0];
+                baseLayer.setProvider(options.provider);
+                this.element.insertBefore(baseLayer.parent, this.element.firstChild);
+                // XXX: force the base map layer to the bottom
+                baseLayer.parent.style.zIndex = 0;
+            }
+
             // and kick things off by setting the extent, center and zoom
             if (options.extent) {
                 this.map.setExtent(options.extent);
             } else if (options.center) {
                 this.map.setCenter(options.center);
+                this.map.dispatchCallback("zoomed");
             }
             if (!isNaN(options.zoom)) {
                 this.map.setZoom(options.zoom);
+            }
+        },
+
+        disassociate: function() {
+            var element = this.element,
+                map = this.map,
+                layers = map.layers,
+                len = layers.length;
+            for (var i = 0; i < len; i++) {
+                var layer = layers[i];
+                try {
+                    delete layer.parent.__htmapl__;
+                } catch (e) {
+                }
+            }
+            try {
+                delete element.__htmapl__;
+                delete this.element, this.map;
+            } catch (e) {
             }
         }
     };
 
     HTMAPL.makeMap = function(element, options) {
-        return new HTMAPL.Map(element, options);
+        return new HTMAPL.Wrapper(element, options);
     };
 
     HTMAPL.makeMaps = function(elements, options) {
         var maps = [],
             len = elements.length;
         for (var i = 0; i < len; i++) {
-            maps.push(new HTMAPL.Map(elements[i], options));
+            maps.push(new HTMAPL.Wrapper(elements[i], options));
         }
         return maps;
     };
 
     function extend(dest, sources) {
         var argc = arguments.length - 1;
-        for (var i = 1; i < argc; i++) {
+        for (var i = 1; i <= argc; i++) {
             var source = arguments[i];
             if (!source) continue;
             for (var p in source) {
@@ -290,9 +342,6 @@ var HTMAPL = {};
     }
 
     function getData(element, key) {
-        if (typeof $ !== "undefined") {
-            return $(element).data(key);
-        }
         if (element.hasOwnProperty("dataset")) {
             // console.log("looking for data:", [key], "in", element.dataset);
             return element.dataset[key] || element.getAttribute("data-" + key);
@@ -388,9 +437,7 @@ var HTMAPL = {};
 	 * Parse a string as a boolean "true" or "false", otherwise null.
 	 */
 	function getBoolean(str) {
-		return (typeof str === "boolean")
-            ? str
-            : (str === "true") ? true : (str === "false") ? false : null;
+		return (str === "true") ? true : (str === "false") ? false : null;
 	}
 
 	/**
@@ -561,42 +608,62 @@ var HTMAPL = {};
     var exports;
     if (typeof $ !== "undefined") {
         // keep a reference around to the plugin object for exporting useful functions
-        exports = $.fn.htmapl = function(options) {
+        exports = $.fn.htmapl = function(options, argn) {
+            var args = Array.prototype.slice.call(arguments, 1);
             return this.each(function() {
                 var $this = $(this),
-                    htmapl = $(this).data("htmapl");
-                if (htmapl) {
-                    htmapl.applyOptions(options);
+                    wrapper = $(this).data("htmapl");
+                if (wrapper) {
+                    if (typeof options === "string") {
+                        var map = wrapper.map;
+                        if (typeof map[options] === "function") {
+                            var method = options;
+                            // console.log("calling map." + method, "with:", args);
+                            map[method].apply(map, args);
+                        } else {
+                            map[options] = argn;
+                        }
+                    } else if (typeof options === "object") {
+                        wrapper.applyOptions(options);
+                    }
                 } else {
                     try {
-                        htmapl = HTMAPL.makeMap(this, options);
-                        var layers = htmapl.map.layers,
+                        wrapper = HTMAPL.makeMap(this, options);
+                        var layers = wrapper.map.layers,
                             len = layers.length;
                         for (var i = 0; i < len; i++) {
                             $(layers[i].parent).data("layer", layers[i]);
                         }
+                        $this.data("htmapl", wrapper);
+                        $this.data("map", wrapper.map);
                     } catch (e) {
                         console.error(e);
                     }
-                    $this.data("htmapl", htmapl);
                 }
             });
         };
+
+        // automatically map-ulate anything with data-htmapl="true"
+        $(function() {
+            $("*[data-htmapl=true]").htmapl();
+        });
+
     } else {
 
         exports = HTMAPL;
 
-        // exports
-        exports.providers = PROVIDERS;
-        exports.registerProvider = registerProvider;
-        exports.getProvider = getProvider;
-        exports.getArray = getArray;
-        exports.getBoolean = getBoolean;
-        exports.getExtent = getExtent;
-        exports.getFloat = getFloat;
-        exports.getInt = getInt;
-        exports.getLatLon = getLatLon;
-        exports.getXY = getXY;
     }
+
+    // exports
+    exports.providers = PROVIDERS;
+    exports.registerProvider = registerProvider;
+    exports.getProvider = getProvider;
+    exports.getArray = getArray;
+    exports.getBoolean = getBoolean;
+    exports.getExtent = getExtent;
+    exports.getFloat = getFloat;
+    exports.getInt = getInt;
+    exports.getLatLon = getLatLon;
+    exports.getXY = getXY;
 
 })();

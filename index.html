@@ -4,7 +4,7 @@
 		<script type="text/javascript" src="lib/jquery-1.5.min.js"></script>
 		<script type="text/javascript" src="lib/modestmaps.js"></script>
 		<script type="text/javascript" src="lib/modestmaps.markers.js"></script>
-		<script type="text/javascript" src="src/htmapl.js"></script>
+		<script type="text/javascript" src="src/htmapl-native.js"></script>
 		<style type="text/css">
 			@import url(examples/style/examples.css);
 			body {
@@ -29,6 +29,11 @@
 		<div id="main" class="map" data-provider="bing" data-center="37.765,-122.413" data-zoom="11">
 			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
 		</div>
+        <p>
+            <a href="javascript:$('#main').htmapl('zoomIn')">Zoom in</a>, <a href="javascript:$('#main').htmapl('zoomOut')">zoom out</a>, 
+            go to <a href="javascript:$('#main').htmapl('setCenter',{lat:0,lon:0});">null island</a> or
+            <a href="javascript:$('#main').htmapl('setCenter',{lat:37.765,lon:-122.413});">back to Stamen</a>.
+        </p>
 
 <pre>&lt;div id="main" class="map" data-center="37.765,-122.413" data-zoom="11"&gt;
   &lt;div class="marker"
@@ -44,7 +49,7 @@
 
 		<h2>Examples</h2>
 		<ul>
-            <li>TODO</li>
+            <li><a href="examples/crimespotting/index.html">Oakland Crimespotting</a></li>
 		</ul>
 
 		<script type="text/javascript" defer="defer">
