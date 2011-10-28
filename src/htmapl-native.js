@@ -66,41 +66,74 @@ var HTMAPL = {};
         }
     }
 
+    /**
+     * HTMAPL doesn't know how to load files natively. For now we rely on
+     * jQuery.ajax() and fill in support if it's available; otherwise, we throw
+     * an exception.
+     */
     HTMAPL.load = function(url, options, success) {
-        throw "Not implemented yet; include jQuery for remote file loading via $.ajax()";
+        throw "Not implemented yet; include jQuery for remote file loading via jQuery.ajax()";
     };
 
-    HTMAPL.Wrapper = function(element, options) {
+    /**
+     * DOM data getter. This is overridden if jQuery is present.
+     */
+    HTMAPL.getData = getData;
+
+    HTMAPL.getBuildMarker = getBuildMarker;
+
+    /**
+     * The Wrapper looks for options in an element, merges those with any
+     * provided in the constructor, builds data and marker layers, and provides
+     * an applyOptions() method for setting any post-initialization options.
+     */
+    HTMAPL.Wrapper = function(element, defaults) {
         this.element = element;
-        this.initialize(options);
+        this.initialize(defaults);
     };
 
     HTMAPL.Wrapper.prototype = {
-        initialize: function(overrides) {
+        /**
+         * initialize() takes an optional hash of option defaults, which
+         * are merged together with HTMAPL.defaults.map to form the set of
+         * options before applying any additional ones found in the DOM.
+         */
+        initialize: function(defaults) {
             var options = {};
-            extend(options, DEFAULTS.map, overrides);
+            // merge in gobal defaults, then user-provided defaults
+            extend(options, DEFAULTS.map, defaults);
+            // parse options out of the DOM element and include those
             parseOptions(options, this.element, ATTRIBUTES.map);
 
             var handlers = [];
+            // if the "interactive" option is set, include the MouseHandler
             if (options.interactive) {
                 handlers.push(new mm.MouseHandler());
             }
 
+            // Create the map. By default our provider is empty.
             var map = this.map = new mm.Map(this.element, NULL_PROVIDER, null, handlers);
-            this.element.__htmapl__ = {map: map};
+            // stash a reference to the wrapper and the map in the DOM node
+            this.element.__htmapl__ = {wrapper: this, map: map};
             // console.log("+ map:", map);
 
+            // intialize data and marker layers
             if (options.layers) {
                 this.initLayers(options.layers);
             }
 
+            // additionally, intialize markers as their own layer
             if (options.markers) {
                 this.initMarkers(options.markers);
             }
 
+            // then apply the runtime options: center, zoom, extent, provider
             this._applyParsedOptions(options);
         },
 
+        /**
+         * Initialize markers as their own layer.
+         */
         initMarkers: function(filter) {
             var markers = getChildren(this.element, filter);
             // console.log("markers:", markers);
@@ -164,7 +197,7 @@ var HTMAPL = {};
                                 buildMarker = template;
                                 break;
                             case "string":
-                                buildMarker = getBuildMarker(template);
+                                buildMarker = HTMAPL.getBuildMarker(template);
                                 break;
                         }
 
@@ -350,6 +383,7 @@ var HTMAPL = {};
         }
     }
 
+    // XXX: not used anywhere yet
     function setData(element, key, value) {
         if (!element.hasOwnProperty("dataset")) {
             element.dataset = {};
@@ -577,42 +611,56 @@ var HTMAPL = {};
      * was found.
      */
     function getBuildMarker(name) {
-        // TODO: remove jQuery dependency here?
-        // TODO: support Mustache templates? something else?
-        if (name.charAt(0) === "#") {
-            var target = document.getElementById(name.substr(1));
-            if (target) {
-                var template = $(target).template();
-                return function(feature) {
-                    return $.tmpl(template, feature).get(0);
-                };
-            } else {
-                return null;
+        try {
+            var ref;
+            // TODO: replace eval() with a safe recursive lookup
+            with (window) {
+                ref = eval(name);
             }
-        } else {
-            try {
-                var ref;
-                // TODO: replace eval() with a safe recursive lookup
-                with (window) {
-                    ref = eval(name);
-                }
-                if (typeof ref === "function") {
-                    return ref;
-                }
-            } catch (e) {
-                console.warn("unable to eval('" + name + "'):", e);
+            if (typeof ref === "function") {
+                return ref;
             }
+        } catch (e) {
+            console.warn("unable to eval('" + name + "'):", e);
         }
         return null;
     }
 
     var exports;
-    if (typeof $ !== "undefined") {
+    if (typeof jQuery !== "undefined") {
+        var $ = jQuery;
 
+        // use jQuery.ajax();
         HTMAPL.load = function(url, options, success) {
             options["success"] = success;
             return $.ajax(url, options);
         };
+
+        /**
+         * Use jQuery.data() so that you can set data via the same interface:
+         *
+         * $("div.map").data("provider", "toner").htmapl();
+         */
+        HTMAPL.getData = function(element, key) {
+            return $(element).data(key);
+        };
+
+        /**
+         * Polyfill getBuildMarker if jQuery templates are available.
+         */
+        if (typeof $.fn.tmpl === "function") {
+            HTMAPL.getBuildMarker = function(name) {
+                var target = $(name);
+                if (target.length == 1) {
+                    var template = target.template();
+                    return function(feature) {
+                        return $.tmpl(template, feature).get(0);
+                    };
+                } else {
+                    return getBuildMarker(name);
+                }
+            };
+        }
 
         // keep a reference around to the plugin object for exporting useful functions
         exports = $.fn.htmapl = function(options, argn) {
