@@ -20,6 +20,18 @@
 				padding: 1ex;
 				overflow: auto;
 			}
+
+            .controls {
+                position: absolute;
+                bottom: 5px;
+                left: 8px;
+                z-index: 100;
+            }
+
+            button {
+                vertical-align: baseline;
+            }
+
 		</style>
 	</head>
 	<body>
@@ -28,12 +40,15 @@
 
 		<div id="main" class="map" data-provider="bing" data-center="37.765,-122.413" data-zoom="11">
 			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
+            <div class="controls">
+                Zoom:
+                <button data-action="zoomIn">&plus; in</button>
+                <button data-action="zoomOut">&minus; out</button>
+                Visit:
+                <button data-action="setCenter:37.765,-122.413">Stamen</button>
+                <button data-action="setCenter:0,0">null island</button>
+            </div>
 		</div>
-        <p>
-            <a href="javascript:$('#main').htmapl('zoomIn')">Zoom in</a>, <a href="javascript:$('#main').htmapl('zoomOut')">zoom out</a>, 
-            go to <a href="javascript:$('#main').htmapl('setCenter',{lat:0,lon:0});">null island</a> or
-            <a href="javascript:$('#main').htmapl('setCenter',{lat:37.765,lon:-122.413});">back to Stamen</a>.
-        </p>
 
 <pre>&lt;div id="main" class="map" data-center="37.765,-122.413" data-zoom="11"&gt;
   &lt;div class="marker"

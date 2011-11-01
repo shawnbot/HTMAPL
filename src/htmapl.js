@@ -17,7 +17,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "provider":     "toner",
             "interactive":  "true",
             "layers":       ".layer",
-            "markers":      ".marker"
+            "markers":      ".marker",
+            "controls":     ".controls"
         },
         "layer": {
             "type":         null,
@@ -37,7 +38,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "provider":     getProvider,
             "interactive":  getBoolean,
             "layers":       String,
-            "markers":      String
+            "markers":      String,
+            "controls":     String
         },
         // layer option parsers
         "layer": {
@@ -91,6 +93,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             // additionally, intialize markers as their own layer
             if (options.markers) {
                 this.initMarkers(options.markers);
+            }
+
+            if (options.controls) {
+                this.initControls(options.controls);
             }
 
             // then apply the runtime options: center, zoom, extent, provider
@@ -267,6 +273,83 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             }
         },
 
+        initControls: function(filter) {
+            var controls = this.getChildren(this.parent, filter),
+                len = controls.length;
+            for (var i = 0; i < len; i++) {
+                var ctrl = controls[i];
+                // console.log("+ control group:", ctrl);
+                if (this.isControl(ctrl)) {
+                    this.initControl(ctrl);
+                } else {
+                    // console.log("  looking for children...", ctrl.childNodes.length);
+                    var children = this.getChildren(ctrl, this.isControl),
+                        clen = children.length;
+                    for (var j = 0; j < clen; j++) {
+                        this.initControl(children[j]);
+                    }
+                }
+            }
+        },
+
+        isControl: function(element) {
+            return element.nodeType == 1 && this.getData(element, "action");
+        },
+
+        initControl: function(element) {
+            var map = this,
+                action = this.getData(element, "action");
+            // console.log("+ control:", element, action);
+
+            if (action.indexOf("(") > -1) {
+                function exec(e) {
+                    with (map) { eval(action); }
+                }
+            } else {
+                var args = action.split(":"),
+                    name = args.shift();
+                switch (name) {
+                    case "setCenter":
+                        args[0] = getLatLon(args[0]);
+                        break;
+                    case "setCenterZoom":
+                        args[0] = getLatLon(args[0]);
+                        args[1] = getInt(args[1]);
+                        break;
+                    case "setZoom":
+                        args[0] = getInt(args[0]);
+                        break;
+                    case "setExtent":
+                        args[0] = getExtent(args[0]);
+                        break;
+                }
+                function exec(e) {
+                    map[name].apply(map, args);
+                }
+            }
+
+            MM.addEvent(element, "dblclick", function(e) {
+                try {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                } catch (e) {
+                    console.warn("couldn't stop double-click: ", e);
+                }
+                return false;
+            });
+
+            MM.addEvent(element, "click", function(e) {
+                // console.log("click:", element, e);
+                e.preventDefault();
+                try {
+                    exec(e);
+                } catch (e) {
+                    console.warn("failed to exec control: ", e);
+                }
+                return false;
+            });
+        },
+
         /**
          * Get a marker building function. This is assumed to be a symbol in
          * the global scope that can be evaluated with eval(). If the string
@@ -345,10 +428,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         },
 
         parseOptions: function(options, element, parsers) {
-            console.log("parsing:", element, "into:", options, "with:", parsers);
+            // console.log("parsing:", element, "into:", options, "with:", parsers);
             for (var key in parsers) {
                 var value = (element ? this.getData(element, key) : null) || options[key];
-                console.log(" +", key, "=", value);
+                // console.log(" +", key, "=", value);
                 // if it's a string, parse it
                 if (typeof value === "string") {
                     options[key] = parsers[key].call(element, value);
