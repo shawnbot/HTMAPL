@@ -21,8 +21,8 @@
             <div class="layer crimes"
                 data-type="geojson"
                 data-template="#oak-marker"
-                data-setExtent="true"
-                data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;format=json">
+                data-setextent="true"
+                data-url="http://oakland.crimespotting.org/crime-data?count=20&amp;format=json">
                 <script id="oak-marker" type="text/x-jquery-tmpl">
                     <a class="report ${getCrimeGroup(properties.crime_type)}"
                         data-crime_type="${properties.crime_type}"
@@ -39,7 +39,7 @@
         </div>
 
         <div id="about">
-            <p>This example shows the 50 most recent crime reports on
+            <p>This example shows the 20 most recent crime reports on
             <a href="http://oakland.crimespotting.org">Oakland Crimespotting</a>,
             using its
             <a href="http://oakland.crimespotting.org/api/">GeoJSON API</a>.
@@ -57,8 +57,8 @@
     &lt;div class="layer crimes"
         data-type="geojson"
         <span class="hilite">data-template="#oak-marker"</span>
-        <span class="hilite">data-setExtent="true"</span>
-        <span class="hilite">data-url="http://oakland.crimespotting.org/crime-data?count=50&amp;amp;format=json"</span>&gt;
+        <span class="hilite">data-setextent="true"</span>
+        <span class="hilite">data-url="http://oakland.crimespotting.org/crime-data?count=20&amp;amp;format=json"</span>&gt;
         &lt;script id="oak-marker" type="text/x-jquery-tmpl"&gt;
             &lt;a class="report ${getCrimeGroup(properties.crime_type)}"
                 data-crime_type="${properties.crime_type}"

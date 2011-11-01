@@ -1,13 +1,17 @@
-var HTMAPL = {};
+if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
 (function() {
 
     try {
-        var mm = com.modestmaps;
+        var MM = com.modestmaps;
     } catch (e) {
         throw "Couldn't find com.modestmaps; did you include modestmaps.js?";
         return false;
     }
+
+    HTMAPL.Map = function(element, defaults) {
+        this.initialize(element, defaults);
+    };
 
     var DEFAULTS = HTMAPL.defaults = {
         "map": {
@@ -22,9 +26,9 @@ var HTMAPL = {};
         "layer": {
             "type":         null,
             "url":          null,
-            "dataType":     "json",
+            "datatype":     "json",
             "template":     null,
-            "setExtent":    "false"
+            "setextent":    "false"
         }
     };
 
@@ -43,78 +47,43 @@ var HTMAPL = {};
         "layer": {
             "type":         String,
             "url":          String,
-            "dataType":     String,
+            "datatype":     String,
             "template":     String,
-            "setExtent":    getBoolean
+            "setextent":    getBoolean
         }
     };
 
-    function parseOptions(options, element, parsers) {
-        // console.log("parsing:", element, "into:", options, "with:", parsers);
-        for (var key in parsers) {
-            var value = (element ? getData(element, key) : null) || options[key];
-            // console.log(" +", key, "=", value);
-            // if it's a string, parse it
-            if (typeof value === "string") {
-                options[key] = parsers[key].call(element, value);
-            // if it's not undefined, assign it
-            } else if (typeof value !== "undefined") {
-                options[key] = value;
-            } else {
-                // console.info("invalid value for", key, ":", value);
-            }
-        }
-    }
-
     /**
-     * HTMAPL doesn't know how to load files natively. For now we rely on
-     * jQuery.ajax() and fill in support if it's available; otherwise, we throw
-     * an exception.
-     */
-    HTMAPL.load = function(url, options, success) {
-        throw "Not implemented yet; include jQuery for remote file loading via jQuery.ajax()";
-    };
-
-    /**
-     * DOM data getter. This is overridden if jQuery is present.
-     */
-    HTMAPL.getData = getData;
-
-    HTMAPL.getBuildMarker = getBuildMarker;
-
-    /**
-     * The Wrapper looks for options in an element, merges those with any
+     * The Map looks for options in an element, merges those with any
      * provided in the constructor, builds data and marker layers, and provides
      * an applyOptions() method for setting any post-initialization options.
      */
-    HTMAPL.Wrapper = function(element, defaults) {
-        this.element = element;
-        this.initialize(defaults);
-    };
+    HTMAPL.Map.prototype = {
 
-    HTMAPL.Wrapper.prototype = {
         /**
          * initialize() takes an optional hash of option defaults, which
          * are merged together with HTMAPL.defaults.map to form the set of
          * options before applying any additional ones found in the DOM.
          */
-        initialize: function(defaults) {
+        initialize: function(element, defaults) {
+
             var options = {};
             // merge in gobal defaults, then user-provided defaults
             extend(options, DEFAULTS.map, defaults);
             // parse options out of the DOM element and include those
-            parseOptions(options, this.element, ATTRIBUTES.map);
+            this.parseOptions(options, element, ATTRIBUTES.map);
 
             var handlers = [];
             // if the "interactive" option is set, include the MouseHandler
             if (options.interactive) {
-                handlers.push(new mm.MouseHandler());
+                handlers.push(new MM.MouseHandler());
             }
 
             // Create the map. By default our provider is empty.
-            var map = this.map = new mm.Map(this.element, NULL_PROVIDER, null, handlers);
+            MM.Map.call(this, element, NULL_PROVIDER, null, handlers);
+
             // stash a reference to the wrapper and the map in the DOM node
-            this.element.__htmapl__ = {wrapper: this, map: map};
+            this.parent.__htmapl__ = {map: this};
             // console.log("+ map:", map);
 
             // intialize data and marker layers
@@ -135,30 +104,56 @@ var HTMAPL = {};
          * Initialize markers as their own layer.
          */
         initMarkers: function(filter) {
-            var markers = getChildren(this.element, filter);
+            var markers = this.getChildren(this.parent, filter);
             // console.log("markers:", markers);
             if (markers.length) {
                 var div = document.createElement("div"),
-                    markerLayer = new mm.MarkerLayer(this.map, NULL_PROVIDER, div);
-                addLayerMarkers(markerLayer, markers);
+                    markerLayer = new MM.MarkerLayer(this, NULL_PROVIDER, div);
+                this.addLayerMarkers(markerLayer, markers);
 
-                this.element.__htmapl__.markers = markerLayer;
+                this.parent.__htmapl__.markers = markerLayer;
                 this.markers = markerLayer;
                 return markerLayer;
             }
             return null;
         },
 
+        /**
+         * Adds each marker element in a jQuery selection to the provided
+         * ModestMaps Layer. Each marker element should have a "location" data
+         * that getLatLon() can parse into a Location object.
+         *
+         * Returns the number of markers added with valid locations.
+         */
+        addLayerMarkers: function(layer, markers) {
+            var added = 0,
+                len = markers.length;
+            for (var i = 0; i < len; i++) {
+                var marker = markers[i],
+                    rawLocation = this.getData(marker, "location"),
+                    parsedLocation = getLatLon(rawLocation);
+                if (parsedLocation) {
+                    layer.addMarker(marker, parsedLocation);
+                    added++;
+                } else {
+                    console.warn("invalid marker location:", rawLocation, "; skipping marker:", marker);
+                }
+            }
+            return added;
+        },
+
         initLayers: function(filter) {
-            var children = getChildren(this.element, filter),
+            var children = this.getChildren(this.parent, filter),
                 len = children.length;
             for (var i = 0; i < len; i++) {
                 var layer = children[i],
                     layerOptions = {};
                 extend(layerOptions, DEFAULTS.layer);
-                parseOptions(layerOptions, layer, ATTRIBUTES.layer);
+                console.log("(init) layer options:", JSON.stringify(layerOptions));
 
-                // console.log("layer options:", layerOptions);
+                this.parseOptions(layerOptions, layer, ATTRIBUTES.layer);
+
+                console.log("(parsed) layer options:", JSON.stringify(layerOptions));
 
                 var type = layerOptions.type,
                     provider = layerOptions.provider;
@@ -170,13 +165,12 @@ var HTMAPL = {};
 
                 // console.log("  + layer:", [type, provider], layer);
 
-                var map = this.map,
-                    mapLayer;
+                var mapLayer;
                 switch (type.toLowerCase()) {
                     case "markers":
                         // marker layers ignore the provider
-                        mapLayer = new mm.MarkerLayer(map, NULL_PROVIDER, layer);
-                        addLayerMarkers(mapLayer, getChildren(layer));
+                        mapLayer = new MM.MarkerLayer(this, NULL_PROVIDER, layer);
+                        this.addLayerMarkers(mapLayer, this.getChildren(layer));
                         break;
 
                     case "geojson":
@@ -197,7 +191,7 @@ var HTMAPL = {};
                                 buildMarker = template;
                                 break;
                             case "string":
-                                buildMarker = HTMAPL.getBuildMarker(template);
+                                buildMarker = this.getBuildMarker(template);
                                 break;
                         }
 
@@ -211,8 +205,8 @@ var HTMAPL = {};
                             // layer...
                             var tileProvider = getProvider(url);
                             if (tileProvider) {
-                                mapProvider = new mm.GeoJSONProvider(tileProvider, buildMarker);
-                                mapLayer = new mm.Layer(map, mapProvider, layer);
+                                mapProvider = new MM.GeoJSONProvider(tileProvider, buildMarker);
+                                mapLayer = new MM.Layer(this, mapProvider, layer);
                             } else {
                                 console.warn("no GeoJSON provider found for:", [url], "on layer:", layer);
                                 continue;
@@ -222,13 +216,25 @@ var HTMAPL = {};
 
                             // otherwise we create a MarkerLayer, load
                             // data, and add markers on success.
-                            mapLayer = new mm.MarkerLayer(map, NULL_PROVIDER, layer);
+                            mapLayer = new MM.MarkerLayer(this, NULL_PROVIDER, layer);
 
+                            /**
+                             * XXX:
+                             * The AJAX request options follow jQuery.ajax()
+                             * conventions. Currently the only option that we
+                             * support is "dataType", which is assumed to be
+                             * either "json" (subject to cross-origin security
+                             * restrictions) or "jsonp" (which uses callbacks
+                             * and is not subject to CORS restrictions).
+                             */
                             var requestOptions = {
-                                "dataType": layerOptions.dataType
+                                "dataType": layerOptions.datatype
                             };
 
-                            var success = function(collection) {
+                            // for the success closure
+                            var map = this;
+
+                            this.ajax(url, requestOptions, function(collection) {
                                 var features = collection.features,
                                     len = features.length,
                                     locations = [];
@@ -238,12 +244,12 @@ var HTMAPL = {};
                                     mapLayer.addMarker(marker, feature);
                                     locations.push(marker.location);
                                 }
-                                if (locations.length && layerOptions.setExtent === true) {
+                                if (locations.length && layerOptions.setextent) {
                                     map.setExtent(locations);
+                                } else {
+                                    console.log("not setting extent:", layerOptions);
                                 }
-                            };
-
-                            HTMAPL.load(url, requestOptions, success);
+                            });
                         }
                         break;
                         
@@ -253,12 +259,12 @@ var HTMAPL = {};
                             break;
                         }
                         var mapProvider = getProvider(provider);
-                        mapLayer = new mm.Layer(map, mapProvider, layer);
+                        mapLayer = new MM.Layer(this, mapProvider, layer);
                         break;
                 }
 
                 if (mapLayer) {
-                    map.layers.push(mapLayer);
+                    this.layers.push(mapLayer);
                     layer.__htmapl__ = {layer: mapLayer};
                 } else {
                     console.warn("no provider created for layer of type", type, ":", layer);
@@ -266,65 +272,203 @@ var HTMAPL = {};
             }
         },
 
+        /**
+         * Get a marker building function. This is assumed to be a symbol in
+         * the global scope that can be evaluated with eval(). If the string
+         * evaluates to anything other than a function, we return null.
+         */
+        getBuildMarker: function(name) {
+            try {
+                var ref;
+                // TODO: replace eval() with a safe recursive lookup
+                with (window) {
+                    ref = eval(name);
+                }
+                if (typeof ref === "function") {
+                    return ref;
+                }
+            } catch (e) {
+                console.warn("unable to eval('" + name + "'):", e);
+            }
+            return null;
+        },
+
         applyOptions: function(options) {
-            parseOptions(options, null, ATTRIBUTES.map);
+            this.parseOptions(options, null, ATTRIBUTES.map);
             this._applyParsedOptions(options);
         },
 
         _applyParsedOptions: function(options) {
             if (options.provider) {
                 // console.log("  * base provider:", options.provider);
-                var baseLayer = this.map.layers[0];
+                var baseLayer = this.layers[0];
                 baseLayer.setProvider(options.provider);
-                this.element.insertBefore(baseLayer.parent, this.element.firstChild);
+                this.parent.insertBefore(baseLayer.parent, this.parent.firstChild);
                 // XXX: force the base map layer to the bottom
                 baseLayer.parent.style.zIndex = 0;
             }
 
             // and kick things off by setting the extent, center and zoom
             if (options.extent) {
-                this.map.setExtent(options.extent);
+                this.setExtent(options.extent);
             } else if (options.center) {
-                this.map.setCenter(options.center);
+                this.setCenter(options.center);
             }
             if (!isNaN(options.zoom)) {
-                this.map.setZoom(options.zoom);
+                this.setZoom(options.zoom);
             }
         },
 
         disassociate: function() {
-            var element = this.element,
-                map = this.map,
-                layers = map.layers,
-                len = layers.length;
+            var len = this.layers.length;
             for (var i = 0; i < len; i++) {
-                var layer = layers[i];
+                var layer = this.layers[i];
                 try {
                     delete layer.parent.__htmapl__;
                 } catch (e) {
                 }
             }
             try {
-                delete element.__htmapl__;
-                delete this.element, this.map;
+                delete this.parent.__htmapl__, this.parent;
             } catch (e) {
             }
+        },
+
+
+        /**
+         * HTMAPL doesn't know how to load files natively. For now we rely on
+         * jQuery.ajax() and fill in support if it's available; otherwise, we throw
+         * an exception.
+         */
+        ajax: function(url, options, success) {
+            throw "Not implemented yet; include jQuery for remote file loading via jQuery.ajax()";
+        },
+
+        /**
+         * DOM data getter. This is monkey patched if jQuery is present.
+         */
+        getData: function(element, key) {
+            if (element.hasOwnProperty("dataset")) {
+                key = key.toLowerCase();
+                // console.log("looking for data:", [key], "in", element.dataset);
+                return element.dataset[key] || element.getAttribute("data-" + key);
+            } else {
+                return element.getAttribute("data-" + key);
+            }
+        },
+
+        // XXX: not used anywhere yet
+        setData: function(element, key, value) {
+            if (!element.hasOwnProperty("dataset")) {
+                element.dataset = {};
+            }
+            element.dataset[key] = value;
+        },
+
+        parseOptions: function(options, element, parsers) {
+            console.log("parsing:", element, "into:", options, "with:", parsers);
+            for (var key in parsers) {
+                var value = (element ? this.getData(element, key) : null) || options[key];
+                console.log(" +", key, "=", value);
+                // if it's a string, parse it
+                if (typeof value === "string") {
+                    options[key] = parsers[key].call(element, value);
+                // if it's not undefined, assign it
+                } else if (typeof value !== "undefined") {
+                    options[key] = value;
+                } else {
+                    // console.info("invalid value for", key, ":", value);
+                }
+            }
+        },
+
+        getChildren: function(element, filter) {
+            var children = element.childNodes,
+                len = children.length,
+                matched = [];
+
+            // TODO: just use Sizzle?
+            switch (typeof filter) {
+                case "string":
+                    if (filter.length > 1 && filter.charAt(0) === ".") {
+                        var className = filter.substr(1),
+                            pattern = new RegExp("\\b" + className + "\\b");
+                        filter = function(child) {
+                            return child.className && child.className.match(pattern);
+                        };
+                    } else {
+                        // TODO: some other filter here? filter by selector?
+                        console.warn("ignoring filter:", filter);
+                        filter = null;
+                    }
+                    break;
+                case "function":
+                    // legit
+                    break;
+                default:
+                    console.warn("invalid filter:", filter);
+                    filter = null;
+                    break;
+            }
+
+            for (var i = 0; i < len; i++) {
+                var child = children[i];
+                if (!filter || filter.call(this, child)) {
+                    matched.push(child);
+                }
+            }
+            return matched;
         }
+
     };
 
-    HTMAPL.makeMap = function(element, options) {
-        return new HTMAPL.Wrapper(element, options);
+    // an HTMAPL.Map is an MM.Map, but better
+    MM.extend(HTMAPL.Map, MM.Map);
+
+    /**
+     * Static utility functions
+     */
+
+    /**
+     * HTMAPL.makeMap() takes a DOM node reference and a hash of default
+     * options, and returns a new HTMAPL.Map instance, which extends
+     * ModestMaps' Map.
+     */
+    HTMAPL.makeMap = function(element, defaults) {
+        return new HTMAPL.Map(element, defaults);
     };
 
-    HTMAPL.makeMaps = function(elements, options) {
+    /**
+     * HTMAPL.makeMaps() iterates over a list of DOM nodes and returns a
+     * corresponding array of HTMAPL.Map instances. This is kind of like:
+     *
+     * var nodes = document.querySelectorAll("div.map");
+     * var options = { ... };
+     * var maps = Array.prototype.slice.call(nodes).map(function(node) {
+     *     return new HTMAPL.makeMap(node, options);
+     * });
+     */
+    HTMAPL.makeMaps = function(elements, defaults) {
         var maps = [],
             len = elements.length;
         for (var i = 0; i < len; i++) {
-            maps.push(new HTMAPL.Wrapper(elements[i], options));
+            maps.push(new HTMAPL.Map(elements[i], defaults));
         }
         return maps;
     };
 
+    /**
+     * Utility functions (not needed in the global scope)
+     */
+
+    /**
+     * extend() updates the properties of the object provided as its first
+     * argument with the proprties of one or more other arguments. E.g.:
+     *
+     * var a = {foo: 1};
+     * extend(a, {foo: 2, bar: 1});
+     * // a.foo === 2, a.bar === 1
+     */
     function extend(dest, sources) {
         var argc = arguments.length - 1;
         for (var i = 1; i <= argc; i++) {
@@ -334,61 +478,6 @@ var HTMAPL = {};
                 dest[p] = source[p];
             }
         }
-    }
-
-    function getChildren(element, filter) {
-        var children = element.childNodes,
-            len = children.length,
-            matched = [];
-
-        // TODO: just use Sizzle?
-        switch (typeof filter) {
-            case "string":
-                if (filter.length > 1 && filter.charAt(0) === ".") {
-                    var className = filter.substr(1),
-                        pattern = new RegExp("\\b" + className + "\\b");
-                    filter = function(child) {
-                        return child.className && child.className.match(pattern);
-                    };
-                } else {
-                    // TODO: some other filter here? filter by selector?
-                    console.warn("ignoring filter:", filter);
-                    filter = null;
-                }
-                break;
-            case "function":
-                // legit
-                break;
-            default:
-                console.warn("invalid filter:", filter);
-                filter = null;
-                break;
-        }
-
-        for (var i = 0; i < len; i++) {
-            var child = children[i];
-            if (!filter || filter.call(this, child)) {
-                matched.push(child);
-            }
-        }
-        return matched;
-    }
-
-    function getData(element, key) {
-        if (element.hasOwnProperty("dataset")) {
-            // console.log("looking for data:", [key], "in", element.dataset);
-            return element.dataset[key] || element.getAttribute("data-" + key);
-        } else {
-            return element.getAttribute("data-" + key);
-        }
-    }
-
-    // XXX: not used anywhere yet
-    function setData(element, key, value) {
-        if (!element.hasOwnProperty("dataset")) {
-            element.dataset = {};
-        }
-        element.dataset[key] = value;
     }
 
 	/**
@@ -521,7 +610,7 @@ var HTMAPL = {};
             }
         } else {
             return url
-                ? new mm.TemplatedMapProvider(url)
+                ? new MM.TemplatedMapProvider(url)
                 : NULL_PROVIDER;
         }
     }
@@ -529,11 +618,11 @@ var HTMAPL = {};
     /**
      * Built-in providers
      */
-    var NULL_PROVIDER = new mm.MapProvider(function(c) { return null; });
+    var NULL_PROVIDER = new MM.MapProvider(function(c) { return null; });
     registerProvider("none",        NULL_PROVIDER);
     // TODO: turn bing into a prefix provider (road, aerial, etc.)
-    registerProvider("bing",        new mm.TemplatedMapProvider("http://ecn.t{S:0,1,2}.tiles.virtualearth.net/tiles/r{Q}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"));
-    registerProvider("toner",       new mm.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
+    registerProvider("bing",        new MM.TemplatedMapProvider("http://ecn.t{S:0,1,2}.tiles.virtualearth.net/tiles/r{Q}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"));
+    registerProvider("toner",       new MM.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
 
     /**
      * Cloudmade style map provider generator.
@@ -549,7 +638,7 @@ var HTMAPL = {};
             if (styleId in aliases) {
                 styleId = aliases[styleId];
             }
-            return new mm.TemplatedMapProvider([
+            return new MM.TemplatedMapProvider([
                 "http://{S}tile.cloudmade.com",
                 CM.key,
                 styleId,
@@ -570,70 +659,29 @@ var HTMAPL = {};
      * Acetate layer generator
      */
     PROVIDERS["acetate"] = function(layer) {
-        return new mm.TemplatedMapProvider("http://acetate.geoiq.com/tiles/acetate-" + layer + "/{Z}/{X}/{Y}.png");
+        return new MM.TemplatedMapProvider("http://acetate.geoiq.com/tiles/acetate-" + layer + "/{Z}/{X}/{Y}.png");
     };
 
-    /**
-     * Adds each marker element in a jQuery selection to the provided
-     * ModestMaps Layer. Each marker element should have a "location" data
-     * that getLatLon() can parse into a Location object.
-     *
-     * Returns the number of markers added with valid locations.
-     */
-    function addLayerMarkers(layer, markers) {
-        var added = 0,
-            len = markers.length;
-        for (var i = 0; i < len; i++) {
-            var marker = markers[i],
-                rawLocation = getData(marker, "location"),
-                parsedLocation = getLatLon(rawLocation);
-            if (parsedLocation) {
-                layer.addMarker(marker, parsedLocation);
-                added++;
-            } else {
-                console.warn("invalid marker location:", rawLocation, "; skipping marker:", marker);
-            }
-        }
-        return added;
-    }
+    // exports
+    var exports = HTMAPL;
+    exports.registerProvider = registerProvider;
+    exports.getProvider = getProvider;
+    exports.getArray = getArray;
+    exports.getBoolean = getBoolean;
+    exports.getExtent = getExtent;
+    exports.getFloat = getFloat;
+    exports.getInt = getInt;
+    exports.getLatLon = getLatLon;
+    exports.getXY = getXY;
 
-    /**
-     * Get a marker building function. If the first character of the provided
-     * name is "#", the string is assumed to refer to a jQuery template with
-     * the name as its id selector.
-     *
-     * Otherwise, we attempt to find a function in the window's scope with that
-     * name. We're using eval() here now, which is obviously bad, but this
-     * could be modified to safely parse dotted variable references, such as
-     * "SomeClass.prototype.buildMarker".
-     *
-     * Either way, the return value should be a function, or null if nothing
-     * was found.
-     */
-    function getBuildMarker(name) {
-        try {
-            var ref;
-            // TODO: replace eval() with a safe recursive lookup
-            with (window) {
-                ref = eval(name);
-            }
-            if (typeof ref === "function") {
-                return ref;
-            }
-        } catch (e) {
-            console.warn("unable to eval('" + name + "'):", e);
-        }
-        return null;
-    }
-
-    var exports;
+    // jQuery-specific stuff
     if (typeof jQuery !== "undefined") {
+
         var $ = jQuery;
 
         // use jQuery.ajax();
-        HTMAPL.load = function(url, options, success) {
-            options["success"] = success;
-            return $.ajax(url, options);
+        HTMAPL.Map.prototype.ajax = function(url, options, success) {
+            return $.ajax(url, options).done(success);
         };
 
         /**
@@ -641,36 +689,50 @@ var HTMAPL = {};
          *
          * $("div.map").data("provider", "toner").htmapl();
          */
-        HTMAPL.getData = function(element, key) {
+        HTMAPL.Map.prototype.getData = function(element, key) {
             return $(element).data(key);
         };
 
         /**
-         * Polyfill getBuildMarker if jQuery templates are available.
+         * Monkey patch Map::getBuildMarker() if jQuery templates are
+         * available. This modifies the prototype method to look for a named
+         * template
          */
         if (typeof $.fn.tmpl === "function") {
-            HTMAPL.getBuildMarker = function(name) {
-                var target = $(name);
-                if (target.length == 1) {
-                    var template = target.template();
-                    return function(feature) {
-                        return $.tmpl(template, feature).get(0);
-                    };
+            var oldBuildMarker = HTMAPL.Map.prototype.getBuildMarker;
+            HTMAPL.Map.prototype.getBuildMarker = function(name) {
+                var existing = oldBuildMarker(name);
+                if (existing) {
+                    return exiting;
                 } else {
-                    return getBuildMarker(name);
+                    // check to see if the provided name is a selector
+                    var target = $(name);
+                    // if there's a matching element, use that as the template
+                    // and return a function that uses that template in a closure
+                    if (target.length == 1) {
+                        var template = target.template();
+                        return function(feature) {
+                            return $.tmpl(template, feature).get(0);
+                        };
+                    // otherwise, return a function that passes the name in as
+                    // the template identifier
+                    } else {
+                        return function(feature) {
+                            return $.tmp(name, feature).get(0);
+                        };
+                    }
                 }
             };
         }
 
         // keep a reference around to the plugin object for exporting useful functions
-        exports = $.fn.htmapl = function(options, argn) {
+        $.fn.htmapl = function(options, argn) {
             var args = Array.prototype.slice.call(arguments, 1);
             return this.each(function() {
                 var $this = $(this),
-                    wrapper = $(this).data("htmapl");
-                if (wrapper) {
+                    map = $(this).data("map");
+                if (map) {
                     if (typeof options === "string") {
-                        var map = wrapper.map;
                         if (typeof map[options] === "function") {
                             var method = options;
                             // console.log("calling map." + method, "with:", args);
@@ -679,18 +741,17 @@ var HTMAPL = {};
                             map[options] = argn;
                         }
                     } else if (typeof options === "object") {
-                        wrapper.applyOptions(options);
+                        map.applyOptions(options);
                     }
                 } else {
                     try {
-                        wrapper = HTMAPL.makeMap(this, options);
-                        var layers = wrapper.map.layers,
+                        map = HTMAPL.makeMap(this, options);
+                        var layers = map.layers,
                             len = layers.length;
                         for (var i = 0; i < len; i++) {
                             $(layers[i].parent).data("layer", layers[i]);
                         }
-                        $this.data("htmapl", wrapper);
-                        $this.data("map", wrapper.map);
+                        $this.data("map", map);
                     } catch (e) {
                         console.error(e);
                     }
@@ -703,21 +764,6 @@ var HTMAPL = {};
             $("*[data-htmapl=true]").htmapl();
         });
 
-    } else {
-
-        exports = HTMAPL;
-
     }
-
-    // exports
-    exports.registerProvider = registerProvider;
-    exports.getProvider = getProvider;
-    exports.getArray = getArray;
-    exports.getBoolean = getBoolean;
-    exports.getExtent = getExtent;
-    exports.getFloat = getFloat;
-    exports.getInt = getInt;
-    exports.getLatLon = getLatLon;
-    exports.getXY = getXY;
 
 })();
