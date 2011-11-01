@@ -67,24 +67,21 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
          */
         initialize: function(element, defaults) {
 
+            // Create the map. By default our provider is empty.
+            MM.Map.call(this, element, NULL_PROVIDER, null, []);
+
             var options = {};
             // merge in gobal defaults, then user-provided defaults
             extend(options, DEFAULTS.map, defaults);
             // parse options out of the DOM element and include those
-            this.parseOptions(options, element, ATTRIBUTES.map);
+            this.parseOptions(options, this.parent, ATTRIBUTES.map);
 
-            var handlers = [];
             // if the "interactive" option is set, include the MouseHandler
             if (options.interactive) {
-                handlers.push(new MM.MouseHandler());
+                var mouseHandler = new MM.MouseHandler();
+                this.eventHandlers.push(mouseHandler);
+                mouseHandler.init(this);
             }
-
-            // Create the map. By default our provider is empty.
-            MM.Map.call(this, element, NULL_PROVIDER, null, handlers);
-
-            // stash a reference to the wrapper and the map in the DOM node
-            this.parent.__htmapl__ = {map: this};
-            // console.log("+ map:", map);
 
             // intialize data and marker layers
             if (options.layers) {
