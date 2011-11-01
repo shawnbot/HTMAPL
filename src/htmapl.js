@@ -9,10 +9,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         return false;
     }
 
-    HTMAPL.Map = function(element, defaults) {
-        this.initialize(element, defaults);
-    };
-
     var DEFAULTS = HTMAPL.defaults = {
         "map": {
             "center":       {lat: 37.764, lon: -122.419},
@@ -51,6 +47,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "template":     String,
             "setextent":    getBoolean
         }
+    };
+
+    HTMAPL.Map = function(element, defaults) {
+        this.initialize(element, defaults);
     };
 
     /**
