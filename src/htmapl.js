@@ -108,7 +108,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                     markerLayer = new MM.MarkerLayer(this, NULL_PROVIDER, div);
                 this.addLayerMarkers(markerLayer, markers);
 
-                this.parent.__htmapl__.markers = markerLayer;
                 this.markers = markerLayer;
                 return markerLayer;
             }
@@ -262,7 +261,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
                 if (mapLayer) {
                     this.layers.push(mapLayer);
-                    layer.__htmapl__ = {layer: mapLayer};
                 } else {
                     console.warn("no provider created for layer of type", type, ":", layer);
                 }
@@ -315,22 +313,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 this.setZoom(options.zoom);
             }
         },
-
-        disassociate: function() {
-            var len = this.layers.length;
-            for (var i = 0; i < len; i++) {
-                var layer = this.layers[i];
-                try {
-                    delete layer.parent.__htmapl__;
-                } catch (e) {
-                }
-            }
-            try {
-                delete this.parent.__htmapl__, this.parent;
-            } catch (e) {
-            }
-        },
-
 
         /**
          * HTMAPL doesn't know how to load files natively. For now we rely on
