@@ -309,6 +309,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 var args = action.split(":"),
                     name = args.shift();
                 switch (name) {
+                    case "setProvider":
+                        // XXX: this is kind of ugly... join the args back together
+                        args = [args.join(":")];
+                        break;
                     case "setCenter":
                         args[0] = getLatLon(args[0]);
                         break;
@@ -328,6 +332,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 }
             }
 
+            // prevent double click events from bubbling up
             MM.addEvent(element, "dblclick", function(e) {
                 try {
                     e.preventDefault();
@@ -338,6 +343,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 return false;
             });
 
+            // and execute the action on click
+            // TODO: parse the action at runtime so it can be changed?
             MM.addEvent(element, "click", function(e) {
                 // console.log("click:", element, e);
                 e.preventDefault();
@@ -374,6 +381,14 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         applyOptions: function(options) {
             this.parseOptions(options, null, ATTRIBUTES.map);
             this._applyParsedOptions(options);
+        },
+
+        // our setProvider() accepts a string lookup
+        setProvider: function(provider) {
+            if (typeof provider === "string") {
+                provider = getProvider(provider);
+            }
+            return MM.Map.prototype.setProviderAt.call(this, 0, provider);
         },
 
         _applyParsedOptions: function(options) {
@@ -696,25 +711,45 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "midnight": 999
         };
 
-        var CM = function(styleId) {
+        var cloudmade = function(styleId) {
             if (styleId in aliases) {
                 styleId = aliases[styleId];
             }
             return new MM.TemplatedMapProvider([
                 "http://{S}tile.cloudmade.com",
-                CM.key,
+                cloudmade.key,
                 styleId,
                 "256/{Z}/{X}/{Y}.png"
-            ].join("/"), CM.domains);
+            ].join("/"), cloudmade.domains);
         };
 
-        CM.key = "1a1b06b230af4efdbb989ea99e9841af";
-        CM.domains = ["a.", "b.", "c.", ""];
-        CM.registerAlias = function(alias, styleId) {
+        // FIXME: use another key? require the user to set this?
+        cloudmade.key = "1a1b06b230af4efdbb989ea99e9841af";
+        cloudmade.domains = ["a.", "b.", "c.", ""];
+        // e.g.:
+        // HTMAPL.providers.cloudmade.registerAlias("fresh", 997);
+        cloudmade.registerAlias = function(alias, styleId) {
             aliases[alias] = styleId;
         };
 
-        return CM;
+        return cloudmade;
+    })();
+
+    /**
+     * Mapbox provider generator
+     */
+    PROVIDERS["mapbox"] = (function() {
+        var mapbox = function(layer) {
+            // if we have multiple arguments, join them into one: "user.layer"
+            if (arguments.length > 1) {
+                layer = Array.prototype.join.call(arguments, ".");
+            }
+            return new MM.TemplatedMapProvider(
+                "http://{S}.tiles.mapbox.com/v2/" + layer + "/{Z}/{X}/{Y}.png",
+                mapbox.domains);
+        };
+        mapbox.domains = ["a", "b", "c"];
+        return mapbox;
     })();
 
     /**

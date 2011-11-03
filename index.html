@@ -23,7 +23,7 @@
 
             .controls {
                 position: absolute;
-                bottom: 5px;
+                top: 5px;
                 left: 8px;
                 z-index: 100;
             }
@@ -38,21 +38,20 @@
 
 		<h1>HTMAPL: HyperText Geographic Maps for jQuery</h1>
 
-		<div id="main" class="map" data-provider="bing" data-center="37.765,-122.413" data-zoom="11">
+		<div id="main" class="map" data-center="37.765,-122.413" data-zoom="10">
 			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
             <div class="controls">
-                Zoom:
                 <button data-action="zoomIn">&plus; in</button>
                 <button data-action="zoomOut">&minus; out</button>
-                Visit:
-                <button data-action="setCenter:37.765,-122.413">Stamen</button>
-                <button data-action="setCenter:0,0">null island</button>
             </div>
 		</div>
 
 <pre>&lt;div id="main" class="map" data-center="37.765,-122.413" data-zoom="11"&gt;
-  &lt;div class="marker"
-    data-location="37.7647463,-122.41951"&gt;&lt;a href="http://stamen.com"&gt;Stamen&lt;/a&gt;&lt;/div&gt;
+  &lt;div class="marker" data-location="37.7647463,-122.41951"&gt;&lt;a href="http://stamen.com"&gt;Stamen&lt;/a&gt;&lt;/div&gt;
+    &lt;div class="controls"&gt;
+      &lt;button data-action="zoomIn"&gt;&plus; in&lt;/button&gt;
+      &lt;button data-action="zoomOut"&gt;&minus; out&lt;/button&gt;
+    &lt;/div&gt;
 &lt;/div&gt;</pre>
 
 		<h2>HTMAPL is:</h2>
