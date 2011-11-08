@@ -7,6 +7,7 @@
         <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
         <script type="text/javascript" src="../../src/htmapl.js"></script>
         <style type="text/css">
+            @import url(../style/screen.css);
             @import url(style.css);
         </style>
     </head>
@@ -21,7 +22,7 @@
             <div class="layer crimes"
                 data-type="geojson"
                 data-template="#oak-marker"
-                data-setextent="true"
+                data-set_extent="true"
                 data-url="http://oakland.crimespotting.org/crime-data?count=20&amp;format=json">
                 <script id="oak-marker" type="text/x-jquery-tmpl">
                     <a class="report ${getCrimeGroup(properties.crime_type)}"
@@ -43,7 +44,7 @@
             <a href="http://oakland.crimespotting.org">Oakland Crimespotting</a>,
             using its
             <a href="http://oakland.crimespotting.org/api/">GeoJSON API</a>.
-            Markers are generated from
+            Markers are generated using
             <a href="http://api.jquery.com/category/plugins/templates/">jQuery templates</a>,
             and mouse events (captured using
             <a href="http://api.jquery.com/live/">.live()</a>
@@ -57,7 +58,7 @@
     &lt;div class="layer crimes"
         data-type="geojson"
         <span class="hilite">data-template="#oak-marker"</span>
-        <span class="hilite">data-setextent="true"</span>
+        <span class="hilite">data-set_extent="true"</span>
         <span class="hilite">data-url="http://oakland.crimespotting.org/crime-data?count=20&amp;amp;format=json"</span>&gt;
         &lt;script id="oak-marker" type="text/x-jquery-tmpl"&gt;
             &lt;a class="report ${getCrimeGroup(properties.crime_type)}"

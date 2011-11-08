@@ -12,20 +12,22 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
     var DEFAULTS = HTMAPL.defaults = {
         "map": {
             "center":       {lat: 37.764, lon: -122.419},
-            "zoom":         17,
+            "zoom":         1,
             "extent":       null,
             "provider":     "toner",
             "interactive":  "true",
+            "mousewheel":   "true",
             "layers":       ".layer",
             "markers":      ".marker",
             "controls":     ".controls"
         },
         "layer": {
-            "type":         null,
+            "type":         "image",
+            "provider":     null,
             "url":          null,
-            "datatype":     "json",
+            "data_type":     "json",
             "template":     null,
-            "setextent":    "false"
+            "set_extent":    "false"
         }
     };
 
@@ -37,6 +39,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "extent":       getExtent,
             "provider":     getProvider,
             "interactive":  getBoolean,
+            "mousewheel":   getBoolean,
             "layers":       String,
             "markers":      String,
             "controls":     String
@@ -44,10 +47,11 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         // layer option parsers
         "layer": {
             "type":         String,
+            "provider":     getProvider,
             "url":          String,
-            "datatype":     String,
+            "data_type":    String,
             "template":     String,
-            "setextent":    getBoolean
+            "set_extent":   getBoolean
         }
     };
 
@@ -82,7 +86,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             if (options.interactive) {
                 var mouseHandler = new MM.MouseHandler();
                 this.eventHandlers.push(mouseHandler);
-                mouseHandler.init(this);
+                mouseHandler.init(this, options.mousewheel);
             }
 
             // intialize data and marker layers
@@ -151,11 +155,11 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 var layer = children[i],
                     layerOptions = {};
                 extend(layerOptions, DEFAULTS.layer);
-                console.log("(init) layer options:", JSON.stringify(layerOptions));
+                // console.log("(init) layer options:", layerOptions);
 
                 this.parseOptions(layerOptions, layer, ATTRIBUTES.layer);
 
-                console.log("(parsed) layer options:", JSON.stringify(layerOptions));
+                // console.log("(parsed) layer options:", layerOptions);
 
                 var type = layerOptions.type,
                     provider = layerOptions.provider;
@@ -205,9 +209,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
                             // if so, we use a GeoJSONProvider and a tiled
                             // layer...
-                            var tileProvider = getProvider(url);
-                            if (tileProvider) {
-                                mapProvider = new MM.GeoJSONProvider(tileProvider, buildMarker);
+                            if (provider) {
+                                mapProvider = new MM.GeoJSONProvider(provider, buildMarker);
                                 mapLayer = new MM.Layer(this, mapProvider, layer);
                             } else {
                                 console.warn("no GeoJSON provider found for:", [url], "on layer:", layer);
@@ -230,7 +233,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                              * and is not subject to CORS restrictions).
                              */
                             var requestOptions = {
-                                "dataType": layerOptions.datatype
+                                "dataType": layerOptions.data_type
                             };
 
                             // for the success closure
@@ -246,7 +249,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                                     mapLayer.addMarker(marker, feature);
                                     locations.push(marker.location);
                                 }
-                                if (locations.length && layerOptions.setextent) {
+                                if (locations.length && layerOptions.set_extent) {
                                     map.setExtent(locations);
                                 } else {
                                     console.log("not setting extent:", layerOptions);
@@ -257,11 +260,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                         
                     case "image":
                         if (!provider) {
-                            console.warn("no provider found for image layer:", layer);
+                            console.warn("no provider found for image layer:", layer, layerOptions);
                             break;
                         }
-                        var mapProvider = getProvider(provider);
-                        mapLayer = new MM.Layer(this, mapProvider, layer);
+                        mapLayer = new MM.Layer(this, provider, layer);
                         break;
                 }
 
@@ -381,6 +383,33 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         applyOptions: function(options) {
             this.parseOptions(options, null, ATTRIBUTES.map);
             this._applyParsedOptions(options);
+        },
+
+        setCenterZoom: function(location, zoom) {
+            var coord = this.provider.locationCoordinate(location).zoomTo(zoom);
+            if (this.coordinate.zoom != coord.zoom || this.coordinate.row != coord.row || this.coordinate.column != coord.column) {
+                this.coordinate = coord;
+                this.draw();
+                this.dispatchCallback('centered', [location, zoom]);
+            } else {
+                return this;
+            }
+        },
+
+        panBy: function(dx, dy) {
+            if (dx != 0 && dy != 0) {
+                return MM.Map.prototype.panBy.call(this, dx, dy);
+            } else {
+                return this;
+            }
+        },
+
+        zoomBy: function(zoomOffset) {
+            if (zoomOffset != 0) {
+                return MM.Map.prototype.zoomBy.call(this, zoomOffset);
+            } else {
+                return this;
+            }
         },
 
         // our setProvider() accepts a string lookup
@@ -664,7 +693,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
      * You can also register tile provider "generator" prefixes with a colon
      * between the prefix and the generator argument(s). E.g.:
      *
-     * HTMAPL.registerProvider("prefix:layer", function(layer) {
+     * HTMAPL.registerProvider("prefix", function(layer) {
      *     var url = "path/to/" + layer + "/{Z}/{X}/{Y}.png";
      *     return new com.modestmaps.TemplatedMapProvider(url);
      * });
@@ -678,7 +707,9 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
      */
     function getProvider(str) {
         if (str in PROVIDERS) {
-            return PROVIDERS[str];
+            return (typeof PROVIDERS[str] === "function")
+                ? PROVIDERS[str].call(null)
+                : PROVIDERS[str];
         } else if (str.indexOf(":") > -1) {
             var parts = str.split(":"),
                 prefix = parts.shift();
@@ -697,9 +728,55 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
      */
     var NULL_PROVIDER = new MM.MapProvider(function(c) { return null; });
     registerProvider("none",        NULL_PROVIDER);
-    // TODO: turn bing into a prefix provider (road, aerial, etc.)
-    registerProvider("bing",        new MM.TemplatedMapProvider("http://ecn.t{S:0,1,2}.tiles.virtualearth.net/tiles/r{Q}?g=689&mkt=en-us&lbl=l1&stl=h&shading=hill"));
     registerProvider("toner",       new MM.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
+
+    /**
+     * Cloudmade style map provider generator.
+     */
+    PROVIDERS["bing"] = (function() {
+        function parseQueryString(str, delim) {
+            // chop off the leading ?
+            if (str.charAt(0) == "?") str = str.substr(1);
+            var parsed = {},
+                parts = str.split(delim || "&"),
+                len = parts.length;
+            for (var i = 0; i < len; i++) {
+                var bits = parts[i].split("=", 2);
+                parsed[bits[0]] = decodeURIComponent(bits[1]);
+            }
+            return parsed;
+        }
+
+        function makeQueryString(params) {
+            var parts = [];
+            for (var key in params) {
+                var value = params[key];
+                if (typeof value === "string" && value.length) {
+                    parts.push(key, "=", encodeURIComponent(params[key]), "&");
+                }
+            }
+            parts.pop();
+            return parts.join("");
+        }
+
+        var bing = function(queryString) {
+            var params = {};
+            extend(params, bing.defaults);
+            if (arguments.length > 0 && queryString) {
+                try {
+                    var parsed = parseQueryString(queryString);
+                    extend(params, parsed);
+                } catch (e) {
+                    throw 'Unable to parse query string "' + queryString + '": ' + e;
+                }
+            }
+            queryString = makeQueryString(params);
+            return new MM.TemplatedMapProvider("http://ecn.t{S}.tiles.virtualearth.net/tiles/r{Q}?" + queryString, bing.subdomains);
+        }
+        bing.subdomains = [0, 1, 2, 3, 4, 5, 6, 7];
+        bing.defaults = parseQueryString("g=689&mkt=en-us&lbl=l1&stl=h&shading=hill");
+        return bing;
+    })();
 
     /**
      * Cloudmade style map provider generator.
@@ -756,7 +833,9 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
      * Acetate layer generator
      */
     PROVIDERS["acetate"] = function(layer) {
-        return new MM.TemplatedMapProvider("http://acetate.geoiq.com/tiles/acetate-" + layer + "/{Z}/{X}/{Y}.png");
+        if (!layer) layer = "acetate";
+        else if (layer.indexOf("acetate") != 0) layer = "acetate-" + layer;
+        return new MM.TemplatedMapProvider("http://acetate.geoiq.com/tiles/" + layer + "/{Z}/{X}/{Y}.png");
     };
 
     // exports
@@ -788,6 +867,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
          */
         HTMAPL.Map.prototype.getData = function(element, key) {
             return $(element).data(key);
+        };
+
+        HTMAPL.Map.prototype.getChildren = function(element, filter) {
+            return $(element).children(filter);
         };
 
         /**
@@ -849,6 +932,23 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                             $(layers[i].parent).data("layer", layers[i]);
                         }
                         $this.data("map", map);
+
+                        map.addCallback("panned", function(_, panOffset) {
+                            $this.trigger("map.panned", {center: map.getCenter(), offset: panOffset});
+                        });
+
+                        map.addCallback("zoomed", function(_, zoomDelta) {
+                            $this.trigger("map.zoomed", {zoom: map.getZoom(), delta: zoomDelta});
+                        });
+
+                        map.addCallback("centered", function() {
+                            $this.trigger("map.centered", {center: map.getCenter()});
+                        });
+
+                        map.addCallback("resized", function() {
+                            $this.trigger("map.resized", {size: map.dimensions});
+                        });
+
                     } catch (e) {
                         console.error(e);
                     }

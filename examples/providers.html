@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HTMAPL: Map Providers</title>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+        <script type="text/javascript" src="../lib/modestmaps.js"></script>
+        <script type="text/javascript" src="../src/htmapl.js"></script>
+        <style type="text/css">
+            @import url(../style/screen.css);
+
+            .map {
+                float: left;
+                width: 512px;
+                height: 300px;
+                background-color: #ccc;
+                margin: 0;
+            }
+
+            .map .label {
+                font-family: "Courier New", monospace;
+                font-size: 13px;
+                line-height: 16px;
+
+                color: #fff;
+                background-color: #000;
+                background-color: rgba(0,0,0,.6);
+                border-radius: 5px;
+
+                padding: 4px 6px;
+
+                position: absolute;
+                bottom: 4px;
+                left: 4px;
+                z-index: 100;
+            }
+
+            #maps {
+                overflow: auto;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id="maps" class="clearfix">
+            <div class="map" data-provider="toner"></div>
+            <div class="map" data-provider="bing:shading="></div>
+            <div class="map" data-provider="acetate"></div>
+
+            <div class="map" data-provider="cloudmade:paledawn"></div>
+            <div class="map" data-provider="cloudmade:midnight"></div>
+
+            <div class="map" data-provider="none">
+                <div class="layer" data-type="image" data-provider="mapbox:mapbox.world-blank-light"></div>
+                <div class="layer" data-type="image" data-provider="mapbox:mapbox.world-borders-dark"></div>
+            </div>
+
+            <div class="map" data-provider="none">
+                <div class="layer" data-type="image" data-provider="mapbox:mapbox.blue-marble-topo-bathy-jul"></div>
+                <div class="layer" data-type="image" data-provider="mapbox:mapbox.world-glass"></div>
+            </div>
+
+            <div class="map" data-provider="mapbox:mapbox.geography-class"></div>
+        </div>
+
+        <div id="controls" class="controls">
+            <button data-action="zoomIn">&plus;</button>
+            <button data-action="zoomOut">&minus;</button>
+        </div>
+
+        <script type="text/javascript" defer>
+        $(function() {
+
+            // grab the controls div and remove it from the DOM
+            var controls = $("#controls").remove();
+
+            var maps = $(".map");
+            // append a cloned controls div onto each map element
+            maps.each(function() {
+                $(this).append(controls.clone());
+            });
+
+            // make some maps with the following option defaults:
+            maps.htmapl({
+                zoom: 5, // note: some of these tiles don't go > 6
+                mousewheel: false // the document may scroll
+            });
+
+            // parse out the provider ids from each map (and layer),
+            // and create a label listing them on top
+            maps.each(function() {
+                var div = $(this),
+                    label = $("<span class='label'>"),
+                    layers = div.children(".layer"),
+                    providers = [];
+                if (layers.length > 0) {
+                    providers = layers.map(function(i) {
+                        return [i + 1, $(this).data("provider")].join(". ");
+                    }).toArray();
+                } else {
+                    providers = [div.data("provider")];
+                }
+                label.html(providers.join("<br>"));
+                div.append(label);
+            });
+
+            // pan other maps when any is panned
+            var panning = false;
+            maps.bind("map.panned", function(e, data) {
+                if (!panning) {
+                    panning = true;
+                    maps.not(this).htmapl("setCenter", data.center);
+                    panning = false;
+                }
+            });
+
+            // zoom other maps when any is zoomed
+            var zooming = false;
+            maps.bind("map.zoomed", function(e, data) {
+                if (!zooming) {
+                    zooming = true;
+                    maps.not(this).htmapl("setZoom", data.zoom);
+                    zooming = false;
+                }
+            });
+
+        });
+        </script>
+    </body>
+</html>
