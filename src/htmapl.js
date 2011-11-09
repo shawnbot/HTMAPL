@@ -72,11 +72,11 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
          * options before applying any additional ones found in the DOM.
          */
         initialize: function(element, defaults) {
-
             // Create the map. By default our provider is empty.
             MM.Map.call(this, element, NULL_PROVIDER, null, []);
 
             var options = {};
+
             // merge in gobal defaults, then user-provided defaults
             extend(options, DEFAULTS.map, defaults);
             // parse options out of the DOM element and include those
@@ -112,7 +112,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
          */
         initMarkers: function(filter) {
             var markers = this.getChildren(this.parent, filter);
-            // console.log("markers:", markers);
             if (markers.length) {
                 var div = document.createElement("div"),
                     markerLayer = new MM.MarkerLayer(this, NULL_PROVIDER, div);
@@ -349,9 +348,9 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             // TODO: parse the action at runtime so it can be changed?
             MM.addEvent(element, "click", function(e) {
                 // console.log("click:", element, e);
-                e.preventDefault();
                 try {
                     exec(e);
+                    e.preventDefault();
                 } catch (e) {
                     console.warn("failed to exec control: ", e);
                 }
@@ -950,7 +949,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                         });
 
                     } catch (e) {
-                        console.error(e);
+                        console.error("unable to makeMap(): ", e.message);
                     }
                 }
             });
