@@ -41,6 +41,10 @@
         </style>
     </head>
     <body>
+        <p id="links">
+            Visit: <a href="javascript:maps.setCenterZoom(0, 0, 14);">null island</a>
+            <a href="javascript:maps.setCenterZoom(37.764, -122.419, 17);">stamen</a>
+        </p>
         <div id="maps" class="clearfix">
             <div class="map" data-provider="toner"></div>
             <div class="map" data-provider="bing:shading="></div>
@@ -68,12 +72,13 @@
         </div>
 
         <script type="text/javascript" defer>
+        var maps;
         $(function() {
 
             // grab the controls div and remove it from the DOM
             var controls = $("#controls").remove();
 
-            var maps = $(".map");
+            maps = $(".map");
             // append a cloned controls div onto each map element
             maps.each(function() {
                 $(this).append(controls.clone());

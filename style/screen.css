@@ -19,18 +19,28 @@ p, dl, ol, ul, blockquote {
     margin: 0 0 15px 0;
 }
 
+pre {
+    width: 100%;
+    padding: 1ex;
+    overflow: auto;
+}
+
 .clearfix {
     overflow: auto;
 }
 
-.map .controls {
+div.map {
+    background: #eee;
+}
+
+div.map .controls {
     position: absolute;
     z-index: 99;
     left: 4px;
     top: 4px;
 }
 
-.map .controls button {
+div.map .controls button {
     cursor: pointer;
     font-weight: bold;
 
@@ -42,3 +52,16 @@ p, dl, ol, ul, blockquote {
     line-height: 1.5em;
     margin: 0;
 }
+
+    div.map .marker {
+        display: inline-block;
+    }
+
+    div.map .marker a {
+        color: inherit;
+        text-decoration: none;
+        font-weight: bold;
+        color: #fff;
+        background: #f00;
+        padding: 5px;
+    }

@@ -1,7 +1,7 @@
 if (typeof HTMAPL === "undefined") var HTMAPL = {};
-
 (function() {
 
+    // TODO: include minified (and hacked) modestmaps.js and modestmaps.markers.js here?
     try {
         var MM = com.modestmaps;
     } catch (e) {
@@ -34,12 +34,12 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
     var ATTRIBUTES = HTMAPL.dataAttributes = {
         // map option parsers
         "map": {
-            "center":       getLatLon,
-            "zoom":         getInt,
-            "extent":       getExtent,
-            "provider":     getProvider,
-            "interactive":  getBoolean,
-            "mousewheel":   getBoolean,
+            "center":       "latLon",
+            "zoom":         "integer",
+            "extent":       "extent",
+            "provider":     "provider",
+            "interactive":  "boolean",
+            "mousewheel":   "boolean",
             "layers":       String,
             "markers":      String,
             "controls":     String
@@ -47,11 +47,11 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         // layer option parsers
         "layer": {
             "type":         String,
-            "provider":     getProvider,
+            "provider":     "provider",
             "url":          String,
             "data_type":    String,
             "template":     String,
-            "set_extent":   getBoolean
+            "set_extent":   "boolean"
         }
     };
 
@@ -136,7 +136,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             for (var i = 0; i < len; i++) {
                 var marker = markers[i],
                     rawLocation = this.getData(marker, "location"),
-                    parsedLocation = getLatLon(rawLocation);
+                    parsedLocation = PARSE.latLon(rawLocation);
                 if (parsedLocation) {
                     layer.addMarker(marker, parsedLocation);
                     added++;
@@ -315,17 +315,27 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                         args = [args.join(":")];
                         break;
                     case "setCenter":
-                        args[0] = getLatLon(args[0]);
+                        args[0] = PARSE.latLon(args[0]);
                         break;
                     case "setCenterZoom":
-                        args[0] = getLatLon(args[0]);
-                        args[1] = getInt(args[1]);
+                        if (args.length == 1) {
+                            var cz = PARSE.centerZoom(args[0]);
+                            if (cz) {
+                                args[0] = cz.center;
+                                args[1] = cz.zoom;
+                            } else {
+                                return null;
+                            }
+                        } else {
+                            args[0] = PARSE.latLon(args[0]);
+                            args[1] = PARSE.integer(args[1]);
+                        }
                         break;
                     case "setZoom":
-                        args[0] = getInt(args[0]);
+                        args[0] = PARSE.integer(args[0]);
                         break;
                     case "setExtent":
-                        args[0] = getExtent(args[0]);
+                        args[0] = PARSE.extent(args[0]);
                         break;
                 }
                 function exec(e) {
@@ -414,7 +424,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         // our setProvider() accepts a string lookup
         setProvider: function(provider) {
             if (typeof provider === "string") {
-                provider = getProvider(provider);
+                provider = PARSE.provider(provider);
             }
             return MM.Map.prototype.setProviderAt.call(this, 0, provider);
         },
@@ -476,8 +486,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 var value = (element ? this.getData(element, key) : null) || options[key];
                 // console.log(" +", key, "=", value);
                 // if it's a string, parse it
-                if (typeof value === "string") {
-                    options[key] = parsers[key].call(element, value);
+                if (typeof value === "string" && parsers[key] !== String) {
+                    options[key] = PARSE[parsers[key]].call(element, value);
                 // if it's not undefined, assign it
                 } else if (typeof value !== "undefined") {
                     options[key] = value;
@@ -592,12 +602,31 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 	 * and should return null if the provided strings don't match a predefined
 	 * format.
 	 */
+    var PARSE = HTMAPL.parse = {};
+
+    /**
+     * Parse a query string, with or without the leading "?", and with an
+     * optional parameter delimiter (the default is "&"). Returns a hash of
+     * string key/value pairs.
+     */
+    PARSE.queryString = function(str, delim) {
+        // chop off the leading ?
+        if (str.charAt(0) == "?") str = str.substr(1);
+        var parsed = {},
+            parts = str.split(delim || "&"),
+            len = parts.length;
+        for (var i = 0; i < len; i++) {
+            var bits = parts[i].split("=", 2);
+            parsed[bits[0]] = decodeURIComponent(bits[1]);
+        }
+        return parsed;
+    };
 
 	/**
 	 * Parse a {lat,lon} object from a string: "lat,lon", or return null if the
 	 * string does not contain a single comma.
 	 */
- 	function getLatLon(str) {
+ 	PARSE.latLon = function(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/),
                 lat = parseFloat(parts[0]),
@@ -605,13 +634,13 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 			return {lon: lon, lat: lat};
 		}
 		return null;
-	}
+	};
 
 	/**
 	 * Parse an {x,y} object from a string: "x,x", or return null if the string
 	 * does not contain a single comma.
 	 */
- 	function getXY(str) {
+ 	PARSE.xy = function(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/),
                 x = parseInt(parts[0]),
@@ -619,14 +648,14 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 			return {x: x, y: y};
 		}
 		return null;
-	}
+	};
 
 	/**
 	 * Parse an extent array [{lat,lon},{lat,lon}] from a string:
 	 * "lat1,lon1,lat2,lon2", or return null if the string does not contain a
 	 * 4 comma-separated numbers.
 	 */
- 	function getExtent(str) {
+ 	PARSE.extent = function(str) {
 		if (typeof str === "string" && str.indexOf(",") > -1) {
 			var parts = str.split(/\s*,\s*/);
 			if (parts.length == 4) {
@@ -641,47 +670,40 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 			}
 		}
 		return null;
-	}
+	};
 
 	/**
 	 * Parse an integer from a string using parseInt(), or return null if the
 	 * resulting value is NaN.
 	 */
-	function getInt(str) {
+	PARSE.integer = function(str) {
 		var i = parseInt(str);
 		return isNaN(i) ? null : i;
-	}
+	};
 
 	/**
 	 * Parse a float from a string using parseFloat(), or return null if the
 	 * resulting value is NaN.
 	 */
-	function getFloat(str) {
+	PARSE["float"] = function(str) {
 		var i = parseFloat(str);
 		return isNaN(i) ? null : i;
-	}
+	};
 
 	/**
 	 * Parse a string as a boolean "true" or "false", otherwise null.
 	 */
-	function getBoolean(str) {
+	PARSE["boolean"] = function(str) {
 		return (str === "true") ? true : (str === "false") ? false : null;
-	}
+	};
 
 	/**
 	 * Parse a string as an array of at least two comma-separated strings, or
 	 * null if it does not contain at least one comma.
 	 */
-	function getArray(str) {
+	PARSE["array"] = function(str) {
 		return (typeof str === "string" && str.indexOf(",") > -1) ? str.split(",") : null;
-	}
-
-    /**
-     * CSS pixel value converter.
-     */
-	function px(n) {
-		return ~~(0.5 + n) + "px";
-	}
+	};
 
     var PROVIDERS = HTMAPL.providers = {};
     /**
@@ -697,14 +719,22 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
      *     return new com.modestmaps.TemplatedMapProvider(url);
      * });
      */
-    function registerProvider(name, provider) {
-        PROVIDERS[name] = provider;
-    }
+    PROVIDERS.register = function(name, provider) {
+        if (typeof provider === "undefined") {
+            PROVIDERS.unregister(name);
+        } else {
+            PROVIDERS[name] = provider;
+        }
+    };
+
+    PROVIDERS.unregister = function(name) {
+        delete PROVIDERS[name];
+    };
 
     /**
      * Get a named provider
      */
-    function getProvider(str) {
+    PARSE.provider = function(str) {
         if (str in PROVIDERS) {
             return (typeof PROVIDERS[str] === "function")
                 ? PROVIDERS[str].call(null)
@@ -720,31 +750,35 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 ? new MM.TemplatedMapProvider(url)
                 : NULL_PROVIDER;
         }
-    }
+    };
+
+    PARSE.centerZoom = function(zoomLatLon) {
+        if (zoomLatLon.charAt(0) === "#") zoomLatLon = zoomLatLon.substr(1);
+        var parts = zoomLatLon.split("/"),
+            zoom = parseInt(parts[0]),
+            lat = parseFloat(parts[1]),
+            lon = parseFloat(parts[2]);
+        if (isNaN(zoom) || isNaN(lat) || isNaN(lon)) {
+            return null;
+        } else {
+            return {
+                center: {lat: lat, lon: lon},
+                zoom: zoom
+            };
+        }
+    };
 
     /**
      * Built-in providers
      */
     var NULL_PROVIDER = new MM.MapProvider(function(c) { return null; });
-    registerProvider("none",        NULL_PROVIDER);
-    registerProvider("toner",       new MM.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
+    PROVIDERS.register("none",  NULL_PROVIDER);
+    PROVIDERS.register("toner", new MM.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
 
     /**
      * Cloudmade style map provider generator.
      */
     PROVIDERS["bing"] = (function() {
-        function parseQueryString(str, delim) {
-            // chop off the leading ?
-            if (str.charAt(0) == "?") str = str.substr(1);
-            var parsed = {},
-                parts = str.split(delim || "&"),
-                len = parts.length;
-            for (var i = 0; i < len; i++) {
-                var bits = parts[i].split("=", 2);
-                parsed[bits[0]] = decodeURIComponent(bits[1]);
-            }
-            return parsed;
-        }
 
         function makeQueryString(params) {
             var parts = [];
@@ -763,7 +797,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             extend(params, bing.defaults);
             if (arguments.length > 0 && queryString) {
                 try {
-                    var parsed = parseQueryString(queryString);
+                    var parsed = PARSE.queryString(queryString);
                     extend(params, parsed);
                 } catch (e) {
                     throw 'Unable to parse query string "' + queryString + '": ' + e;
@@ -773,7 +807,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             return new MM.TemplatedMapProvider("http://ecn.t{S}.tiles.virtualearth.net/tiles/r{Q}?" + queryString, bing.subdomains);
         }
         bing.subdomains = [0, 1, 2, 3, 4, 5, 6, 7];
-        bing.defaults = parseQueryString("g=689&mkt=en-us&lbl=l1&stl=h&shading=hill");
+        bing.defaults = PARSE.queryString("g=689&mkt=en-us&lbl=l1&stl=h&shading=hill");
         return bing;
     })();
 
@@ -836,18 +870,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         else if (layer.indexOf("acetate") != 0) layer = "acetate-" + layer;
         return new MM.TemplatedMapProvider("http://acetate.geoiq.com/tiles/" + layer + "/{Z}/{X}/{Y}.png");
     };
-
-    // exports
-    var exports = HTMAPL;
-    exports.registerProvider = registerProvider;
-    exports.getProvider = getProvider;
-    exports.getArray = getArray;
-    exports.getBoolean = getBoolean;
-    exports.getExtent = getExtent;
-    exports.getFloat = getFloat;
-    exports.getInt = getInt;
-    exports.getLatLon = getLatLon;
-    exports.getXY = getXY;
 
     // jQuery-specific stuff
     if (typeof jQuery !== "undefined") {
@@ -952,6 +974,64 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                         console.error("unable to makeMap(): ", e.message);
                     }
                 }
+            });
+        };
+
+        $.fn.getCenter = function() {
+            return this.data("map").getCenter();
+        };
+
+        $.fn.setCenter = function(lat, lon) {
+            var center;
+            if (arguments.length == 1) {
+                if (typeof lat === "object") {
+                    center = lat;
+                } else if (typeof lat === "string") {
+                    center = PARSE.latLon(lat);
+                }
+            } else {
+                center = {lat: Number(lat), lon: Number(lon)};
+            }
+            return this.each(function() {
+                $(this).data("map").setCenter(center);
+            });
+        };
+
+        $.fn.setCenterZoom = function(lat, lon, zoom) {
+            var center;
+            if (arguments.length == 2) {
+                if (typeof lat === "object") {
+                    center = lat;
+                } else if (typeof lat === "string") {
+                    center = PARSE.latLon(lat);
+                }
+                zoom = lon;
+            } else {
+                center = {lat: Number(lat), lon: Number(lon)};
+            }
+            return this.each(function() {
+                $(this).data("map").setCenterZoom(center, zoom);
+            });
+        };
+
+        $.fn.getZoom = function() {
+            return this.data("map").getZoom();
+        };
+
+        $.fn.setZoom = function(zoom) {
+            if (typeof zoom === "string") {
+                zoom = parseInt(zoom);
+            }
+            return this.each(function() {
+                $(this).data("map").setZoom(zoom);
+            });
+        };
+
+        // TODO: no getProvider()?
+
+        $.fn.setProvider = function(provider) {
+            return this.each(function() {
+                $(this).data("map").setProvider(provider);
             });
         };
 

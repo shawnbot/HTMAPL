@@ -1,45 +1,29 @@
 <html>
 	<head>
-		<title>HTMAPL: HyperText Geographic Maps for jQuery</title>
+		<title>HTMAPL: HyperText Maps</title>
 		<script type="text/javascript" src="lib/jquery-1.5.min.js"></script>
 		<script type="text/javascript" src="lib/modestmaps.js"></script>
 		<script type="text/javascript" src="lib/modestmaps.markers.js"></script>
 		<script type="text/javascript" src="src/htmapl.js"></script>
 		<style type="text/css">
-			@import url(examples/style/examples.css);
-			body {
-				margin: 0 4em;
-			}
+			@import url(style/screen.css);
+
 			div.map {
 				width: 100%;
 				height: 200px;
 			}
 
-			pre {
-				width: 100%;
-				padding: 1ex;
-				overflow: auto;
-			}
-
-            .controls {
-                position: absolute;
-                top: 5px;
-                left: 8px;
-                z-index: 100;
-            }
-
-            button {
-                vertical-align: baseline;
-            }
-
 		</style>
 	</head>
 	<body>
 
-		<h1>HTMAPL: HyperText Geographic Maps for jQuery</h1>
+        <h1><span>&lt;</span>HTMAPL<span>&gt;</h1>
+        <h2>HyperText Maps</h2>
 
-		<div id="main" class="map" data-center="37.765,-122.413" data-zoom="10">
-			<div class="marker" data-location="37.7647463,-122.41951"><a href="http://stamen.com">Stamen</a></div>
+		<div id="main" class="map" data-center="37.7647463,-122.41951" data-zoom="10">
+            <div class="marker" data-location="37.7647463,-122.41951">
+                <a href="http://stamen.com">Stamen</a>
+            </div>
             <div class="controls">
                 <button data-action="zoomIn">&plus; in</button>
                 <button data-action="zoomOut">&minus; out</button>
@@ -47,11 +31,13 @@
 		</div>
 
 <pre>&lt;div id="main" class="map" data-center="37.765,-122.413" data-zoom="11"&gt;
-  &lt;div class="marker" data-location="37.7647463,-122.41951"&gt;&lt;a href="http://stamen.com"&gt;Stamen&lt;/a&gt;&lt;/div&gt;
-    &lt;div class="controls"&gt;
-      &lt;button data-action="zoomIn"&gt;&plus; in&lt;/button&gt;
-      &lt;button data-action="zoomOut"&gt;&minus; out&lt;/button&gt;
-    &lt;/div&gt;
+  &lt;div class="marker" data-location="37.7647463,-122.41951"&gt;
+    &lt;a href="http://stamen.com"&gt;Stamen&lt;/a&gt;
+  &lt;/div&gt;
+  &lt;div class="controls"&gt;
+    &lt;button data-action="zoomIn"&gt;&plus; in&lt;/button&gt;
+    &lt;button data-action="zoomOut"&gt;&minus; out&lt;/button&gt;
+  &lt;/div&gt;
 &lt;/div&gt;</pre>
 
 		<h2>HTMAPL is:</h2>
@@ -63,6 +49,7 @@
 
 		<h2>Examples</h2>
 		<ul>
+            <li><a href="examples/providers.html">Built-in map providers</a></li>
             <li><a href="examples/crimespotting/index.html">Oakland Crimespotting</a></li>
 		</ul>
 
