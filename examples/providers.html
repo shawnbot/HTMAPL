@@ -16,6 +16,9 @@
                 margin: 0;
             }
 
+            .map .controls { visibility: hidden; }
+            .map:hover .controls { visibility: visible; }
+
             .map .label {
                 font-family: "Courier New", monospace;
                 font-size: 13px;
@@ -42,11 +45,11 @@
     </head>
     <body>
         <p id="links">
-            Visit: <a href="javascript:maps.setCenterZoom(0, 0, 14);">null island</a>
-            <a href="javascript:maps.setCenterZoom(37.764, -122.419, 17);">stamen</a>
+            Visit: <a href="javascript:void(0);" onclick="maps.centerZoom(0, 0, 10);">null island</a>
+            <a href="javascript:void(0);" onclick="maps.centerZoom(37.764, -122.419, 17);">stamen</a>
         </p>
         <div id="maps" class="clearfix">
-            <div class="map" data-provider="toner"></div>
+            <div class="map" data-hash="true" data-provider="toner"></div>
             <div class="map" data-provider="bing:shading="></div>
             <div class="map" data-provider="acetate"></div>
 
@@ -89,6 +92,10 @@
                 zoom: 5, // note: some of these tiles don't go > 6
                 mousewheel: false // the document may scroll
             });
+
+            // copy the extent of the first one to all others
+            // (so that the hash gets applied)
+            maps.slice(1).extent(maps.first().extent());
 
             // parse out the provider ids from each map (and layer),
             // and create a label listing them on top

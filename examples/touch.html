@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HTMAPL: Touch</title>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+        <script type="text/javascript" src="../lib/modestmaps.js"></script>
+        <script type="text/javascript" src="../src/htmapl.js"></script>
+        <style type="text/css">
+            @import url(../style/screen.css);
+
+            html, body,
+            .map {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                padding: 0;
+                margin: 0;
+            }
+
+            #map {
+                background-color: #ccc;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id="map" class="map" data-provider="toner">
+        </div>
+
+        <script type="text/javascript" defer>
+        $(function() {
+
+            // make some maps with the following option defaults:
+            $(".map").htmapl({
+                touch: true,
+                mousewheel: true,
+                hash: true
+            });
+
+        });
+        </script>
+    </body>
+</html>

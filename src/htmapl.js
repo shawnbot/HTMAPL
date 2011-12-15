@@ -3,7 +3,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
     // TODO: include minified (and hacked) modestmaps.js and modestmaps.markers.js here?
     try {
-        var MM = com.modestmaps;
+        var MM = MM || com.modestmaps;
     } catch (e) {
         throw "Couldn't find com.modestmaps; did you include modestmaps.js?";
         return false;
@@ -16,7 +16,9 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "extent":       null,
             "provider":     "toner",
             "interactive":  "true",
-            "mousewheel":   "true",
+            "mousewheel":   "false",
+            "touch":        "false",
+            "hash":         "false",
             "layers":       ".layer",
             "markers":      ".marker",
             "controls":     ".controls"
@@ -40,6 +42,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "provider":     "provider",
             "interactive":  "boolean",
             "mousewheel":   "boolean",
+            "touch":        "boolean",
+            "hash":         "boolean",
             "layers":       String,
             "markers":      String,
             "controls":     String
@@ -84,9 +88,16 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
             // if the "interactive" option is set, include the MouseHandler
             if (options.interactive) {
-                var mouseHandler = new MM.MouseHandler();
-                this.eventHandlers.push(mouseHandler);
-                mouseHandler.init(this, options.mousewheel);
+                this.eventHandlers.push(new MM.DragHandler(this));
+                this.eventHandlers.push(new MM.DoubleClickHandler(this));
+                if (options.mousewheel) {
+                    // TODO: precise argument for intermediate zooms
+                    this.eventHandlers.push(new MM.MouseWheelHandler(this));
+                }
+
+                if (options.touch) {
+                    this.eventHandlers.push(new MM.TouchHandler(this));
+                }
             }
 
             // intialize data and marker layers
@@ -105,6 +116,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
             // then apply the runtime options: center, zoom, extent, provider
             this._applyParsedOptions(options);
+
+            if (options.hash) {
+                this.eventHandlers.push(new MM.Hash(this));
+            }
         },
 
         /**
@@ -114,8 +129,9 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             var markers = this.getChildren(this.parent, filter);
             if (markers.length) {
                 var div = document.createElement("div"),
-                    markerLayer = new MM.MarkerLayer(this, NULL_PROVIDER, div);
+                    markerLayer = new MM.MarkerLayer(div);
                 this.addLayerMarkers(markerLayer, markers);
+                this.addLayer(markerLayer);
 
                 this.markers = markerLayer;
                 return markerLayer;
@@ -174,7 +190,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                 switch (type.toLowerCase()) {
                     case "markers":
                         // marker layers ignore the provider
-                        mapLayer = new MM.MarkerLayer(this, NULL_PROVIDER, layer);
+                        mapLayer = new MM.MarkerLayer(layer);
                         this.addLayerMarkers(mapLayer, this.getChildren(layer));
                         break;
 
@@ -210,7 +226,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                             // layer...
                             if (provider) {
                                 mapProvider = new MM.GeoJSONProvider(provider, buildMarker);
-                                mapLayer = new MM.Layer(this, mapProvider, layer);
+                                mapLayer = new MM.Layer(mapProvider, layer);
                             } else {
                                 console.warn("no GeoJSON provider found for:", [url], "on layer:", layer);
                                 continue;
@@ -220,7 +236,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
                             // otherwise we create a MarkerLayer, load
                             // data, and add markers on success.
-                            mapLayer = new MM.MarkerLayer(this, NULL_PROVIDER, layer);
+                            mapLayer = new MM.MarkerLayer(layer);
 
                             /**
                              * XXX:
@@ -262,12 +278,12 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                             console.warn("no provider found for image layer:", layer, layerOptions);
                             break;
                         }
-                        mapLayer = new MM.Layer(this, provider, layer);
+                        mapLayer = new MM.Layer(provider, layer);
                         break;
                 }
 
                 if (mapLayer) {
-                    this.layers.push(mapLayer);
+                    this.addLayer(mapLayer);
                 } else {
                     console.warn("no provider created for layer of type", type, ":", layer);
                 }
@@ -395,7 +411,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         },
 
         setCenterZoom: function(location, zoom) {
-            var coord = this.provider.locationCoordinate(location).zoomTo(zoom);
+            var coord = this.locationCoordinate(location).zoomTo(zoom);
             if (this.coordinate.zoom != coord.zoom || this.coordinate.row != coord.row || this.coordinate.column != coord.column) {
                 this.coordinate = coord;
                 this.draw();
@@ -443,9 +459,12 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             if (options.extent) {
                 this.setExtent(options.extent);
             } else if (options.center) {
-                this.setCenter(options.center);
-            }
-            if (!isNaN(options.zoom)) {
+                if (isNaN(options.zoom)) {
+                    this.setCenter(options.center);
+                } else {
+                    this.setCenterZoom(options.center, options.zoom);
+                }
+            } else if (!isNaN(options.zoom)) {
                 this.setZoom(options.zoom);
             }
         },
@@ -966,6 +985,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
                             $this.trigger("map.centered", {center: map.getCenter()});
                         });
 
+                        map.addCallback("extentset", function() {
+                            $this.trigger("map.extentset", {extent: map.getExtent()});
+                        });
+
                         map.addCallback("resized", function() {
                             $this.trigger("map.resized", {size: map.dimensions});
                         });
@@ -977,27 +1000,68 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             });
         };
 
-        $.fn.getCenter = function() {
-            return this.data("map").getCenter();
-        };
-
-        $.fn.setCenter = function(lat, lon) {
-            var center;
-            if (arguments.length == 1) {
-                if (typeof lat === "object") {
-                    center = lat;
-                } else if (typeof lat === "string") {
-                    center = PARSE.latLon(lat);
-                }
+        $.fn.center = function() {
+            if (arguments.length == 0) {
+                return this.data("map").getCenter();
             } else {
-                center = {lat: Number(lat), lon: Number(lon)};
+                var center, zoom;
+                if (arguments.length == 1) {
+                    if (typeof arguments[0] === "object") {
+                        center = arguments[0];
+                    } else if (typeof arguments[0] === "string") {
+                        center = PARSE.latLon(arguments[0]);
+                    }
+                } else if (arguments.length == 2) {
+                    if (typeof arguments[0] === "object") {
+                        center = arguments[0];
+                        zoom = Number(arguments[1]);
+                    } else {
+                        center = {lat: Number(arguments[0]), lon: Number(arguments[1])};
+                    }
+                } else if (arguments.length == 3) {
+                    center = {lat: Number(arguments[0]), lon: Number(arguments[1])};
+                    zoom = Number(arguments[2]);
+                }
+                if (!center) {
+                    return this;
+                }
+                return isNaN(zoom)
+                    ? this.each(function() {
+                        $(this).data("map").setCenter(center);
+                    })
+                    : this.each(function() {
+                        $(this).data("map").setCenterZoom(center, zoom);
+                    });
             }
-            return this.each(function() {
-                $(this).data("map").setCenter(center);
-            });
         };
 
-        $.fn.setCenterZoom = function(lat, lon, zoom) {
+        $.fn.zoom = function(zoom) {
+            if (arguments.length == 0) {
+                return this.data("map").getZoom();
+            } else {
+                if (typeof zoom === "string") {
+                    zoom = parseInt(zoom);
+                }
+                return this.each(function() {
+                    $(this).data("map").setZoom(zoom);
+                });
+            }
+        };
+
+        $.fn.extent = function(extent) {
+            if (arguments.length == 0) {
+                return this.data("map").getExtent();
+            } else {
+                if (typeof extent === "string") {
+                    extent = PARSE.extent(extent);
+                }
+                return this.each(function() {
+                    $(this).data("map").setExtent(extent);
+                });
+            }
+        };
+
+        $.fn.centerZoom = function(lat, lon, zoom) {
             var center;
             if (arguments.length == 2) {
                 if (typeof lat === "object") {
@@ -1014,22 +1078,8 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             });
         };
 
-        $.fn.getZoom = function() {
-            return this.data("map").getZoom();
-        };
-
-        $.fn.setZoom = function(zoom) {
-            if (typeof zoom === "string") {
-                zoom = parseInt(zoom);
-            }
-            return this.each(function() {
-                $(this).data("map").setZoom(zoom);
-            });
-        };
-
         // TODO: no getProvider()?
-
-        $.fn.setProvider = function(provider) {
+        $.fn.provider = function(provider) {
             return this.each(function() {
                 $(this).data("map").setProvider(provider);
             });
