@@ -2,40 +2,58 @@
 <html>
     <head>
         <title>HTMAPL: Touch</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0;" />
         <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
         <script type="text/javascript" src="../lib/modestmaps.js"></script>
         <script type="text/javascript" src="../src/htmapl.js"></script>
         <style type="text/css">
             @import url(../style/screen.css);
 
-            html, body,
-            .map {
+            html, body, #map {
                 position: absolute;
                 width: 100%;
                 height: 100%;
                 padding: 0;
                 margin: 0;
+                border: 0;
             }
 
             #map {
                 background-color: #ccc;
             }
 
+            .map-tile {
+              opacity: 0;
+            }
+            .map-tile-loaded {
+              -webkit-animation-name: 'fade-in';
+              -webkit-animation-timing-function: ease-in;
+              -webkit-animation-duration: 0.2s;
+            }
+            @-webkit-keyframes fade-in {
+              from {
+                opacity: 0;
+              }
+              to {
+                opacity: 1;
+              }
+            }
+
         </style>
     </head>
     <body>
-        <div id="map" class="map" data-provider="toner">
+        <div id="map" data-provider="toner">
         </div>
 
         <script type="text/javascript" defer>
+        var map;
         $(function() {
 
-            // make some maps with the following option defaults:
-            $(".map").htmapl({
+            map = $("#map").htmapl({
                 touch: true,
                 mousewheel: true,
                 hash: true
-            });
+            }).data("map");
 
         });
         </script>
