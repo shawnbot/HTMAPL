@@ -503,6 +503,15 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             // console.log("parsing:", element, "into:", options, "with:", parsers);
             for (var key in parsers) {
                 var value = (element ? this.getData(element, key) : null) || options[key];
+
+                var value = (element) ? this.getData(element, key) : null;
+
+		// allow for options to be set to 'false' 
+
+		if (typeof(value) === 'undefined'){
+			value = options[key];
+		}
+
                 // console.log(" +", key, "=", value);
                 // if it's a string, parse it
                 if (typeof value === "string" && parsers[key] !== String) {
