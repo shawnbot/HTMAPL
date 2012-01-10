@@ -2,15 +2,18 @@
 <html>
     <head>
         <title>HTMAPL: Flickr-like</title>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
         <script type="text/javascript" src="../htmapl-standalone.js"></script>
+        <script type="text/javascript" src="../lib/modestmaps.mousezoom.js"></script>
         <style type="text/css">
             @import url(../style/screen.css);
 
-            #map {
+            .map {
                 background-color: #ccc;
                 width: 100%;
                 max-width: 400px;
                 height: 150px;
+                margin: 0 0 20px 0;
             }
 
             .map-tile {
@@ -32,19 +35,26 @@
 
         </style>
         <script type="text/javascript">
-        var map;
-        function init() {
-            map = new HTMAPL.Map("map");
-        }
+        $(function() {
+            $(".map").htmapl({
+                provider: "toner",
+                hash: false
+            });
+        });
         </script>
     </head>
-    <body onload="init()">
-        <div id="map" class="map"
-            data-provider="toner"
+    <body>
+        <div class="map"
             data-center="37.76,-122.42"
             data-zoom="3"
             data-mousezoom="3,9,13">
             <div class="marker" data-location="37.76,-122.42"><a href="http://stamen.com">Stamen</a></div>
+        </div>
+        <div class="map"
+            data-center="37.7945,-122.4016"
+            data-zoom="8"
+            data-mousezoom="8,11,13">
+            <div class="marker" data-location="37.7945,-122.4016"><a href="http://flickr.com">Flickr</a></div>
         </div>
     </body>
 </html>

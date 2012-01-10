@@ -43,7 +43,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "provider":     "provider",
             "interactive":  "boolean",
             "mousewheel":   "boolean",
-            "mousezoom":    "array",
+            "mousezoom":    "numarray",
             "touch":        "boolean",
             "hash":         "boolean",
             "layers":       String,
@@ -91,7 +91,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             // console.log("options:", JSON.stringify(options));
 
             if (options.mousezoom) {
-                this.eventHandlers.push(new MM.MouseMoveZoomHandler(this, options.mousezoom));
+                var zoomHandler = new MM.MouseMoveZoomHandler(this, options.mousezoom);
+                this.eventHandlers.push(zoomHandler);
+                // use the outer zoom as the default
+                options.zoom = zoomHandler.outerZoom;
             } else if (options.interactive) {
                 // if the "interactive" option is set, include the MouseHandler
                 this.eventHandlers.push(new MM.DragHandler(this));
@@ -454,11 +457,14 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         _applyParsedOptions: function(options) {
             if (options.provider) {
                 // console.log("  * base provider:", options.provider);
-                var baseLayer = this.layers[0];
-                baseLayer.setProvider(options.provider);
-                this.parent.insertBefore(baseLayer.parent, this.parent.firstChild);
-                // XXX: force the base map layer to the bottom
-                baseLayer.parent.style.zIndex = 0;
+                var baseLayer = this.layers[0],
+                    provider = PARSE.provider(options.provider);
+                if (provider) {
+                    baseLayer.setProvider(provider);
+                    this.parent.insertBefore(baseLayer.parent, this.parent.firstChild);
+                    // XXX: force the base map layer to the bottom
+                    baseLayer.parent.style.zIndex = 0;
+                }
             }
 
             // and kick things off by setting the extent, center and zoom
@@ -733,7 +739,24 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 	 * null if it does not contain at least one comma.
 	 */
 	PARSE["array"] = function(str) {
-		return (typeof str === "string" && str.indexOf(",") > -1) ? str.split(",") : null;
+		return (typeof str === "string" && str.indexOf(",") > -1) ? str.split(/\s*,\s*/) : null;
+	};
+
+	/**
+	 * Parse a string as an array of integers.
+	 */
+	PARSE["numarray"] = function(str) {
+        var a = PARSE.array(str);
+        if (a) {
+            var n = a.length;
+            for (var i = 0; i < n; i++) {
+                a[i] = Number(a[i]);
+                if (isNaN(a[i])) {
+                    return null;
+                }
+            }
+        }
+        return a;
 	};
 
     var PROVIDERS = HTMAPL.providers = {};
@@ -805,6 +828,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
     var NULL_PROVIDER = new MM.MapProvider(function(c) { return null; });
     PROVIDERS.register("none",  NULL_PROVIDER);
     PROVIDERS.register("toner", new MM.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
+    PROVIDERS.register("stamen:toner", new MM.TemplatedMapProvider("http://spaceclaw.stamen.com/toner/{Z}/{X}/{Y}.png"));
 
     /**
      * Cloudmade style map provider generator.
