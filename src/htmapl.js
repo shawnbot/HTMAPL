@@ -18,6 +18,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "interactive":  "true",
             "mousewheel":   "false",
             "touch":        "false",
+            "mousezoom":    null,
             "hash":         "false",
             "layers":       ".layer",
             "markers":      ".marker",
@@ -42,6 +43,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             "provider":     "provider",
             "interactive":  "boolean",
             "mousewheel":   "boolean",
+            "mousezoom":    "array",
             "touch":        "boolean",
             "hash":         "boolean",
             "layers":       String,
@@ -83,11 +85,16 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
             // merge in gobal defaults, then user-provided defaults
             extend(options, DEFAULTS.map, defaults);
+            console.log("options:", JSON.stringify(options));
             // parse options out of the DOM element and include those
             this.parseOptions(options, this.parent, ATTRIBUTES.map);
+            console.log("options:", JSON.stringify(options));
 
-            // if the "interactive" option is set, include the MouseHandler
-            if (options.interactive) {
+            if (options.mousezoom) {
+                console.log("mousezoom:", options.mousezoom);
+                this.eventHandlers.push(new MM.MouseMoveZoomHandler(this, options.mousezoom));
+            } else if (options.interactive) {
+                // if the "interactive" option is set, include the MouseHandler
                 this.eventHandlers.push(new MM.DragHandler(this));
                 this.eventHandlers.push(new MM.DoubleClickHandler(this));
                 if (options.mousewheel) {
@@ -502,15 +509,12 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         parseOptions: function(options, element, parsers) {
             // console.log("parsing:", element, "into:", options, "with:", parsers);
             for (var key in parsers) {
-                var value = (element ? this.getData(element, key) : null) || options[key];
-
                 var value = (element) ? this.getData(element, key) : null;
 
-		// allow for options to be set to 'false' 
-
-		if (typeof(value) === 'undefined'){
-			value = options[key];
-		}
+                // allow for options to be set to 'false' 
+                if (value === null) {
+                    value = options[key];
+                }
 
                 // console.log(" +", key, "=", value);
                 // if it's a string, parse it

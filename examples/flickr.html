@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HTMAPL: Flickr-like</title>
+        <script type="text/javascript" src="../lib/modestmaps.js"></script>
+        <script type="text/javascript" src="../lib/modestmaps.markers.js"></script>
+        <script type="text/javascript" src="../lib/modestmaps.mousezoom.js"></script>
+        <script type="text/javascript" src="../src/htmapl.js"></script>
+        <style type="text/css">
+            @import url(../style/screen.css);
+
+            #map {
+                background-color: #ccc;
+                width: 100%;
+                max-width: 400px;
+                height: 150px;
+            }
+
+            .map-tile {
+              opacity: 0;
+            }
+            .map-tile-loaded {
+              -webkit-animation-name: 'fade-in';
+              -webkit-animation-timing-function: ease-in;
+              -webkit-animation-duration: 0.2s;
+            }
+            @-webkit-keyframes fade-in {
+              from {
+                opacity: 0;
+              }
+              to {
+                opacity: 1;
+              }
+            }
+
+        </style>
+        <script type="text/javascript">
+        var map;
+        function init() {
+            console.log("hello!");
+            map = new HTMAPL.Map("map");
+        }
+        </script>
+    </head>
+    <body onload="init()">
+        <div id="map" class="map"
+            data-provider="toner"
+            data-center="37.76,-122.42"
+            data-zoom="3"
+            data-mousezoom="3,9,13">
+            <div class="marker" data-location="37.76,-122.42"><a href="http://stamen.com">Stamen</a></div>
+        </div>
+    </body>
+</html>
