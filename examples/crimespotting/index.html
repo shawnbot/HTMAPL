@@ -3,9 +3,7 @@
         <title>HTMAPL: Crimespotting</title>
         <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
         <script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jquery.templates/beta1/jquery.tmpl.min.js"></script>
-        <script type="text/javascript" src="../../lib/modestmaps.js"></script>
-        <script type="text/javascript" src="../../lib/modestmaps.markers.js"></script>
-        <script type="text/javascript" src="../../src/htmapl.js"></script>
+        <script type="text/javascript" src="../../htmapl-standalone.js"></script>
         <style type="text/css">
             @import url(../style/screen.css);
             @import url(style.css);
@@ -16,6 +14,7 @@
         <h1>HTMAPL: Oakland Crimespotting</h1>
 
         <div class="map" id="oakland"
+            data-mousewheel="false"
             data-provider="cloudmade:paledawn"
             data-center="37.804,-122.252"
             data-zoom="12">

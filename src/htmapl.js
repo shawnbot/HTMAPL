@@ -85,10 +85,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
             // merge in gobal defaults, then user-provided defaults
             extend(options, DEFAULTS.map, defaults);
-            console.log("options:", JSON.stringify(options));
+            // console.log("options:", JSON.stringify(options));
             // parse options out of the DOM element and include those
             this.parseOptions(options, this.parent, ATTRIBUTES.map);
-            console.log("options:", JSON.stringify(options));
+            // console.log("options:", JSON.stringify(options));
 
             if (options.mousezoom) {
                 this.eventHandlers.push(new MM.MouseMoveZoomHandler(this, options.mousezoom));

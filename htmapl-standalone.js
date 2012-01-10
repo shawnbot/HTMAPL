@@ -3010,10 +3010,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
 
             // merge in gobal defaults, then user-provided defaults
             extend(options, DEFAULTS.map, defaults);
-            console.log("options:", JSON.stringify(options));
+            // console.log("options:", JSON.stringify(options));
             // parse options out of the DOM element and include those
             this.parseOptions(options, this.parent, ATTRIBUTES.map);
-            console.log("options:", JSON.stringify(options));
+            // console.log("options:", JSON.stringify(options));
 
             if (options.mousezoom) {
                 this.eventHandlers.push(new MM.MouseMoveZoomHandler(this, options.mousezoom));
@@ -4213,7 +4213,7 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             // offset by the layer parent position if x or y is non-zero
             if (this.position.x || this.position.y) {
                 pos.x -= this.position.x;
-                pox.y -= this.position.y;
+                pos.y -= this.position.y;
             }
             marker.style.left = ~~(pos.x + .5) + "px";
             marker.style.top = ~~(pos.y + .5) + "px";
@@ -4328,7 +4328,6 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             } else if (f <= this.innerZoomFactor) {
                 z = this.innerZoom;
             }
-            console.log(dx, dy, "->", f, z);
             this.map.setCenterZoom(map.getCenter(), z);
         }
     };
