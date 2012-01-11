@@ -126,8 +126,10 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             // then apply the runtime options: center, zoom, extent, provider
             this._applyParsedOptions(options);
 
-            if (options.hash) {
+            if (options.hash === true) {
                 this.eventHandlers.push(new MM.Hash(this));
+            } else {
+                console.log("hash?", options.hash);
             }
         },
 
@@ -458,7 +460,9 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
             if (options.provider) {
                 // console.log("  * base provider:", options.provider);
                 var baseLayer = this.layers[0],
-                    provider = PARSE.provider(options.provider);
+                    provider = (typeof options.provider === "string")
+                        ? PARSE.provider(options.provider)
+                        : options.provider;
                 if (provider) {
                     baseLayer.setProvider(provider);
                     this.parent.insertBefore(baseLayer.parent, this.parent.firstChild);
@@ -514,20 +518,24 @@ if (typeof HTMAPL === "undefined") var HTMAPL = {};
         parseOptions: function(options, element, parsers) {
             // console.log("parsing:", element, "into:", options, "with:", parsers);
             for (var key in parsers) {
-                var value = (element) ? this.getData(element, key) : null;
+                var value = element ? this.getData(element, key) : null;
+                // console.log("option:", key, [value], typeof value);
 
                 // allow for options to be set to 'false' 
-                if (value === null) {
+                if (typeof value === "undefined") {
                     value = options[key];
+                    // console.log("  default:", [value], typeof value);
                 }
 
                 // console.log(" +", key, "=", value);
                 // if it's a string, parse it
                 if (typeof value === "string" && parsers[key] !== String) {
                     options[key] = PARSE[parsers[key]].call(element, value);
+                    // console.log("  + parsed:", [options[key]], typeof options[key]);
                 // if it's not undefined, assign it
                 } else if (typeof value !== "undefined") {
                     options[key] = value;
+                    // console.log("  + passthru:", [options[key]], typeof options[key]);
                 } else {
                     // console.info("invalid value for", key, ":", value);
                 }
